@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>MAG322 Core Player</title>
+    <title>MAG322 Core Player Fix</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000000; color: #ffffff; font-family: monospace; overflow: hidden; }
         #log { position: absolute; top: 20px; left: 20px; font-size: 24px; background: rgba(0,0,0,0.8); z-index: 9999; width: 90%; word-wrap: break-word; }
@@ -10,7 +10,6 @@
 </head>
 <body>
 
-<!-- Экран логов, чтобы видеть статус запуска в реальном времени -->
 <div id="log">Инициализация gSTB...<br></div>
 
 <script type="text/javascript">
@@ -18,52 +17,62 @@
         document.getElementById('log').innerHTML += text + "<br>";
     }
 
-    // Используем правильное решение ffrt2 для интернет-трансляций, как указано в мануале
-    // Пробуем запустить ваш прямой поток транскодера Hugging Face
+    // Ссылка на ваш поток с решением ffrt2 для realtime HTTP трансляций
     var hlsUrl = "ffrt2 http://playertest.longtailvideo.com/adaptive/wowzaid3/playlist.m3u8";
 
     window.onload = function() {
-        showLog("Страница загружена. Проверка объекта gSTB...");
+        showLog("Страница загружена. Проверка gSTB...");
 
-        // Проверяем наличие нового API gSTB из вашей документации
         if (typeof gSTB === "undefined") {
-            showLog("ОШИБКА: Объект gSTB не найден! Проверьте устройство.");
+            showLog("ОШИБКА: Объект gSTB не найден.");
             return;
         }
 
-        showLog("API gSTB успешно обнаружено.");
+        showLog("gSTB найден. Пробуем запустить поток...");
         
+        // Попытка №1: Прямой вызов gSTB.Play
         try {
-            // Настройка окна вывода видео на приставке
-            gSTB.SetVideoWindow(0, 0, 1280, 720);
-            gSTB.SetVideoControlMode(1);
-            gSTB.SetTopWin(0);
-            showLog("Параметры экрана установлены.");
-
-            // Запуск воспроизведения через gSTB.Play с решением ffrt2
-            showLog("Запуск потока: " + hlsUrl);
-            gSTB.Play(hlsUrl);
-            showLog("Сигнал на воспроизведение отправлен!");
-
-            // Через 5 секунд скрываем логи, чтобы не мешали просмотру видео
-            setTimeout(function() {
-                document.getElementById('log').style.display = 'none';
-            }, 5000);
-
-        } catch (e) {
-            showLog("Ошибка выполнения gSTB: " + e.message);
+            if (typeof gSTB.Play === "function") {
+                showLog("Вызов gSTB.Play...");
+                gSTB.Play(hlsUrl);
+                showLog("Команда gSTB.Play отправлена успешно!");
+                hideLogDelayed();
+                return;
+            }
+        } catch (e1) {
+            showLog("Сбой gSTB.Play: " + e1.message);
         }
+
+        // Попытка №2: Альтернативный вызов через stbPlayer.play (если первый метод не сработал)
+        try {
+            if (typeof stbPlayer !== "undefined" && typeof stbPlayer.play === "function") {
+                showLog("Вызов stbPlayer.play...");
+                stbPlayer.play({url: hlsUrl});
+                showLog("Команда stbPlayer.play отправлена успешно!");
+                hideLogDelayed();
+                return;
+            } else {
+                showLog("Объект stbPlayer не обнаружен.");
+            }
+        } catch (e2) {
+            showLog("Сбой stbPlayer.play: " + e2.message);
+        }
+
+        showLog("ОШИБКА: Не удалось найти рабочий метод воспроизведения.");
     };
 
-    // Обработка перезапуска при нажатии кнопок Назад/Выход
+    function hideLogDelayed() {
+        setTimeout(function() {
+            document.getElementById('log').style.display = 'none';
+        }, 5000);
+    }
+
+    // Перезапуск по кнопкам Назад/Выход
     document.addEventListener("keydown", function(event) {
-        if (event.keyCode === 27 || event.keyCode === 8) { // Back / Exit
-            try {
-                gSTB.Stop();
-                gSTB.Play(hlsUrl);
-            } catch (err) {
-                showLog("Ошибка перезапуска");
-            }
+        if (event.keyCode === 27 || event.keyCode === 8) {
+            try { gSTB.Stop(); } catch(e){}
+            try { stbPlayer.stop(); } catch(e){}
+            window.location.reload(); // Самый надежный способ перезапустить плеер — обновить страницу портала
         }
     }, false);
 </script>
