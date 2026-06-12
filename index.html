@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>MAG322 Modern Player</title>
+    <title>MAG322 Core API Player</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000000; color: #ffffff; font-family: monospace; overflow: hidden; }
         #log { position: absolute; top: 20px; left: 20px; font-size: 24px; background: rgba(0,0,0,0.8); z-index: 9999; width: 90%; word-wrap: break-word; }
@@ -12,7 +12,7 @@
 </head>
 <body>
 
-<div id="log">Инициализация stbPlayer...<br></div>
+<div id="log">Инициализация плеера...<br></div>
 <div id="vol_bar"><div id="vol_val"></div></div>
 
 <script type="text/javascript">
@@ -21,42 +21,48 @@
         document.getElementById('log').style.display = 'block';
     }
 
-    var hlsUrl = "ffrt2 https://ur5lgq-iptv-transcoder.hf.space/low.m3u8";
+    var hlsUrl = "ffrt2 https://hf.space";
     var currentVolume = 50;
     var volTimer = null;
 
     window.onload = function() {
-        // Проверяем версию API ради интереса в логах
-        try {
-            if (typeof gSTB !== "undefined" && typeof gSTB.Version === "function") {
-                showLog(gSTB.Version());
-            }
-        } catch(e){}
-
-        // Запуск потока строго через stbPlayer, так как gSTB устарел
+        // Запуск потока
         try {
             if (typeof stbPlayer !== "undefined" && typeof stbPlayer.play === "function") {
                 stbPlayer.play({url: hlsUrl});
-                showLog("Поток запущен через stbPlayer.play");
+                showLog("Видео запущено.");
                 
-                // Считываем начальную громкость из нового объекта
+                // Чтение текущего уровня громкости (0-100)
                 if (typeof stbPlayer.volume !== "undefined") {
                     currentVolume = stbPlayer.volume;
                 }
                 
                 hideLogDelayed();
             } else {
-                showLog("ОШИБКА: Объект stbPlayer не найден!");
+                showLog("Ошибка: объект stbPlayer не найден.");
             }
         } catch (err) {
-            showLog("Ошибка запуска: " + err.message);
+            showLog("Ошибка stbPlayer.play: " + err.message);
+        }
+
+        // Инициализация перехвата системных кнопок пульта MAG
+        try {
+            if (typeof stbEvent !== "undefined") {
+                stbEvent.onEvent = function(eventCode, info) {
+                    // Коды событий прошивки Infomir (для пультов)
+                    handleStbEvent(eventCode);
+                };
+                showLog("Обработчик stbEvent подключен.");
+            }
+        } catch(e) {
+            showLog("Ошибка stbEvent: " + e.message);
         }
     };
 
     function hideLogDelayed() {
         setTimeout(function() {
             document.getElementById('log').style.display = 'none';
-        }, 4000);
+        }, 3000);
     }
 
     function changeVolume(dir) {
@@ -68,13 +74,12 @@
             if (currentVolume < 0) currentVolume = 0;
         }
 
-        // Меняем громкость через stbPlayer.volume
         try {
             if (typeof stbPlayer !== "undefined") {
-                stbPlayer.volume = currentVolume;
+                stbPlayer.volume = currentVolume; // Запись нового значения напрямую в свойство
             }
         } catch(e){
-            showLog("Ошибка громкости: " + e.message);
+            showLog("Ошибка изменения громкости: " + e.message);
         }
 
         document.getElementById('vol_val').style.width = currentVolume + "%";
@@ -86,50 +91,58 @@
         }, 2000);
     }
 
-    // Слушаем нажатия клавиш (расширенный список кодов для MAG322 WebKit)
+    // Обработка через фирменное системное API Infomir
+    function handleStbEvent(eventCode) {
+        //showLog("Событие пульта: " + eventCode); // Раскомментируйте, чтобы увидеть точные коды кнопок на экране
+
+        switch(parseInt(eventCode)) {
+            case 1: // Традиционный код громкости вверх (Volume +)
+                changeVolume("up");
+                break;
+            case 2: // Традиционный код громкости вниз (Volume -)
+                changeVolume("down");
+                break;
+            case 3: // Кнопка Mute (Отключение звука)
+                try { stbPlayer.mute = !stbPlayer.mute; } catch(e){}
+                break;
+            case 5: // Кнопка EXIT или BACK (Выход/Назад)
+                try {
+                    stbPlayer.stop();
+                    // Возврат в стандартное внутреннее меню приставки
+                    if (typeof gSTB !== "undefined" && typeof gSTB.LoadPage === "function") {
+                        gSTB.LoadPage("file:///home/img/main_menu/index.html");
+                    } else {
+                        window.location.href = "about:blank";
+                    }
+                } catch(e){
+                    window.location.reload();
+                }
+                break;
+        }
+    }
+
+    // Дублирующий стандартный HTML5 обработчик (на случай, если кнопки маппятся как клавиатура)
     document.addEventListener("keydown", function(event) {
-        var keyCode = event.keyCode;
-        var keyName = event.key; // Проверяем имя клавиши для Chromium
+        var key = event.key;
+        var code = event.keyCode;
 
-        // Отладочный лог: раскомментируйте строчку ниже, если захотите увидеть код любой нажатой кнопки прямо на ТВ
-        // showLog("Нажата кнопка: Code=" + keyCode + " Name=" + keyName);
-
-        // Обработка ГРОМКОСТИ (вверх)
-        if (keyCode === 38 || keyCode === 449 || keyName === "VolumeUp" || keyCode === 175) {
+        if (key === "VolumeUp" || code === 38 || code === 175) {
             event.preventDefault();
             changeVolume("up");
-        }
-        
-        // Обработка ГРОМКОСТИ (вниз)
-        else if (keyCode === 40 || keyCode === 450 || keyName === "VolumeDown" || keyCode === 174) {
+        } else if (key === "VolumeDown" || code === 40 || code === 174) {
             event.preventDefault();
             changeVolume("down");
-        }
-
-        // Обработка СТОП
-        else if (keyCode === 115 || keyName === "MediaStop" || keyCode === 178) {
+        } else if (key === "MediaStop" || code === 115 || code === 178) {
             event.preventDefault();
-            try { stbPlayer.stop(); showLog("Воспроизведение остановлено (stbPlayer.stop)"); } catch(e){}
-        }
-
-        // Обработка ПЛЕЙ (Возобновление)
-        else if (keyCode === 114 || keyName === "MediaPlayPause" || keyCode === 179) {
+            try { stbPlayer.stop(); showLog("Остановлено."); } catch(e){}
+        } else if (key === "MediaPlayPause" || code === 114 || code === 179) {
             event.preventDefault();
-            window.location.reload(); // Самый чистый перезапуск потока
-        }
-
-        // Обработка кнопки ВЫХОД / НАЗАД
-        else if (keyCode === 8 || keyCode === 27 || keyName === "Escape" || keyName === "Backspace") {
+            window.location.reload();
+        } else if (code === 8 || code === 27) { // Назад / Выход
             event.preventDefault();
-            showLog("Выход в главное меню...");
             try {
-                // Пытаемся корректно закрыть плеер и вызвать системное меню
                 stbPlayer.stop();
-                if (typeof gSTB !== "undefined" && typeof gSTB.LoadPage === "function") {
-                    gSTB.LoadPage("file:///home/img/main_menu/index.html");
-                } else {
-                    window.location.href = "about:blank";
-                }
+                gSTB.LoadPage("file:///home/img/main_menu/index.html");
             } catch(e) {
                 window.location.reload();
             }
