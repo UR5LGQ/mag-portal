@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>MAG322 WebKit Player</title>
+    <title>MAG322 Core Player</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000000; color: #ffffff; font-family: monospace; overflow: hidden; }
         #log { position: absolute; top: 20px; left: 20px; font-size: 24px; background: rgba(0,0,0,0.8); z-index: 9999; width: 90%; word-wrap: break-word; }
@@ -10,52 +10,62 @@
 </head>
 <body>
 
-<div id="log">Запуск портала...<br></div>
+<!-- Экран логов, чтобы видеть статус запуска в реальном времени -->
+<div id="log">Инициализация gSTB...<br></div>
 
 <script type="text/javascript">
     function showLog(text) {
         document.getElementById('log').innerHTML += text + "<br>";
     }
 
-    // Рабочая тестовая ссылка HLS без шифрования
-    var hlsUrl = "ffmpeg http://playertest.longtailvideo.com/adaptive/wowzaid3/playlist.m3u8";
+    // Используем правильное решение ffrt2 для интернет-трансляций, как указано в мануале
+    // Пробуем запустить ваш прямой поток транскодера Hugging Face
+    var hlsUrl = "ffrt2 http://playertest.longtailvideo.com/adaptive/wowzaid3/playlist.m3u8";
 
     window.onload = function() {
-        showLog("Страница загружена. Проверка API...");
-        
-        // Проверяем, видит ли приставка глобальный объект gSTB или stb
-        var targetStb = window.gSTB || window.stb;
+        showLog("Страница загружена. Проверка объекта gSTB...");
 
-        if (!targetStb) {
-            showLog("ОШИБКА: Объект STB не найден. Вы запустили это на ПК?");
+        // Проверяем наличие нового API gSTB из вашей документации
+        if (typeof gSTB === "undefined") {
+            showLog("ОШИБКА: Объект gSTB не найден! Проверьте устройство.");
             return;
         }
 
-        showLog("API найдено. Инициализация плеера...");
+        showLog("API gSTB успешно обнаружено.");
+        
         try {
-            // В MAG322 (WebKit) инициализация часто скрыта или делается через gSTB
-            if (typeof targetStb.InitPlayer === "function") {
-                targetStb.InitPlayer();
-                showLog("Плеер инициализирован.");
-            }
-            
-            // Настройка окна вывода видео
-            if (typeof targetStb.SetVideoWindow === "function") {
-                targetStb.SetVideoWindow(0, 0, 1280, 720);
-            }
-            if (typeof targetStb.SetVideoControlMode === "function") {
-                targetStb.SetVideoControlMode(1);
-            }
+            // Настройка окна вывода видео на приставке
+            gSTB.SetVideoWindow(0, 0, 1280, 720);
+            gSTB.SetVideoControlMode(1);
+            gSTB.SetTopWin(0);
+            showLog("Параметры экрана установлены.");
 
-            showLog("Попытка запуска потока: " + hlsUrl);
-            targetStb.Play(hlsUrl);
-            showLog("Команда Play отправлена приставке!");
+            // Запуск воспроизведения через gSTB.Play с решением ffrt2
+            showLog("Запуск потока: " + hlsUrl);
+            gSTB.Play(hlsUrl);
+            showLog("Сигнал на воспроизведение отправлен!");
+
+            // Через 5 секунд скрываем логи, чтобы не мешали просмотру видео
+            setTimeout(function() {
+                document.getElementById('log').style.display = 'none';
+            }, 5000);
 
         } catch (e) {
-            showLog("Критическая ошибка JS: " + e.message);
+            showLog("Ошибка выполнения gSTB: " + e.message);
         }
     };
+
+    // Обработка перезапуска при нажатии кнопок Назад/Выход
+    document.addEventListener("keydown", function(event) {
+        if (event.keyCode === 27 || event.keyCode === 8) { // Back / Exit
+            try {
+                gSTB.Stop();
+                gSTB.Play(hlsUrl);
+            } catch (err) {
+                showLog("Ошибка перезапуска");
+            }
+        }
+    }, false);
 </script>
 </body>
 </html>
-
