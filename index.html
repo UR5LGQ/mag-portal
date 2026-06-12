@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>MAG322 High Buffer Player</title>
+    <title>MAG322 Perfect Player</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000000; color: #ffffff; font-family: monospace; overflow: hidden; }
         #log { position: absolute; top: 20px; left: 20px; font-size: 24px; background: rgba(0,0,0,0.8); z-index: 9999; width: 90%; word-wrap: break-word; }
@@ -12,7 +12,7 @@
 </head>
 <body>
 
-<div id="log">Настройка буфера и запуск...<br></div>
+<div id="log">Запуск видео и пульта...<br></div>
 <div id="vol_bar"><div id="vol_val"></div></div>
 
 <script type="text/javascript">
@@ -29,18 +29,16 @@
         try {
             if (typeof stbPlayer !== "undefined" && typeof stbPlayer.play === "function") {
                 
-                // Настраиваем расширенные параметры воспроизведения и буферизации
+                // Параметры буферизации для стабильного воспроизведения без рывков
                 var playOptions = {
                     url: hlsUrl,
-                    // Задаем параметры буфера (значения в миллисекундах)
-                    bufferStart: 4000, // Ждать накопления 4 секунд видео перед стартом (устраняет дерганье при запуске)
-                    bufferTime: 8000,  // Держать в памяти до 8 секунд потока (сглаживает просадки интернета)
-                    lowBufferTime: 2000 // Минимальный порог, ниже которого плеер снова уйдет в буферизацию вместо замерзания
+                    bufferStart: 4000, 
+                    bufferTime: 8000,  
+                    lowBufferTime: 2000 
                 };
 
-                // Запуск с новыми настройками буфера
                 stbPlayer.play(playOptions);
-                showLog("Видео запущено с буфером 8с.");
+                showLog("Поток запущен.");
                 
                 if (typeof stbPlayer.volume !== "undefined") {
                     currentVolume = stbPlayer.volume;
@@ -53,15 +51,6 @@
         } catch (err) {
             showLog("Ошибка stbPlayer.play: " + err.message);
         }
-
-        // Подключение пульта
-        try {
-            if (typeof stbEvent !== "undefined") {
-                stbEvent.onEvent = function(eventCode, info) {
-                    handleStbEvent(eventCode);
-                };
-            }
-        } catch(e){}
     };
 
     function hideLogDelayed() {
@@ -79,39 +68,56 @@
             if (currentVolume < 0) currentVolume = 0;
         }
         try { if (typeof stbPlayer !== "undefined") { stbPlayer.volume = currentVolume; } } catch(e){}
+        
         document.getElementById('vol_val').style.width = currentVolume + "%";
         document.getElementById('vol_bar').style.display = "block";
         clearTimeout(volTimer);
         volTimer = setTimeout(function() { document.getElementById('vol_bar').style.display = "none"; }, 2000);
     }
 
-    function handleStbEvent(eventCode) {
-        switch(parseInt(eventCode)) {
-            case 1: changeVolume("up"); break;
-            case 2: changeVolume("down"); break;
-            case 3: try { stbPlayer.mute = !stbPlayer.mute; } catch(e){} break;
-            case 5: 
-                try {
-                    stbPlayer.stop();
-                    if (typeof gSTB !== "undefined" && typeof gSTB.LoadPage === "function") {
-                        gSTB.LoadPage("file:///home/img/main_menu/index.html");
-                    } else { window.location.href = "about:blank"; }
-                } catch(e){ window.location.reload(); }
-                break;
-        }
-    }
-
-    // Клавиатурный дублер пульта
+    // Точный перехват кнопок по вашей таблице спецификации MAG322
     document.addEventListener("keydown", function(event) {
-        var key = event.key;
         var code = event.keyCode;
-        if (key === "VolumeUp" || code === 38 || code === 175) { event.preventDefault(); changeVolume("up"); }
-        else if (key === "VolumeDown" || code === 40 || code === 174) { event.preventDefault(); changeVolume("down"); }
-        else if (key === "MediaStop" || code === 115 || code === 178) { event.preventDefault(); try { stbPlayer.stop(); } catch(e){} }
-        else if (key === "MediaPlayPause" || code === 114 || code === 179) { event.preventDefault(); window.location.reload(); }
-        else if (code === 8 || code === 27) {
-            event.preventDefault();
-            try { stbPlayer.stop(); gSTB.LoadPage("file:///home/img/main_menu/index.html"); } catch(e) { window.location.reload(); }
+        var alt = event.altKey;
+
+        // Блокируем стандартные действия Chromium, чтобы приставка не выходила в браузерную строку
+        event.preventDefault();
+
+        // 1. Громкость вверх (код 107)
+        if (code === 107 || code === 38) {
+            changeVolume("up");
+        } 
+        // 2. Громкость вниз (код 109)
+        else if (code === 109 || code === 40) {
+            changeVolume("down");
+        } 
+        // 3. Стоп (код 83 + Alt)
+        else if (code === 83 && alt) {
+            try { 
+                stbPlayer.stop(); 
+                showLog("Воспроизведение остановлено."); 
+            } catch(e){}
+        } 
+        // 4. Плей / Пауза (код 82 + Alt)
+        else if (code === 82 && alt) {
+            window.location.reload(); // Перезапуск страницы для возобновления
+        } 
+        // 5. Mute / Без звука (код 192 + Alt)
+        else if (code === 192 && alt) {
+            try { stbPlayer.mute = !stbPlayer.mute; } catch(e){}
+        } 
+        // 6. Выход / Назад (коды 27 или 8)
+        else if (code === 27 || code === 8) {
+            try {
+                stbPlayer.stop();
+                if (typeof gSTB !== "undefined" && typeof gSTB.LoadPage === "function") {
+                    gSTB.LoadPage("file:///home/img/main_menu/index.html"); // Выход в меню приставки
+                } else {
+                    window.location.href = "about:blank";
+                }
+            } catch(e) {
+                window.location.reload();
+            }
         }
     }, false);
 </script>
