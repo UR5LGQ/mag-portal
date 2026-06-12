@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>MAG322 Full Control Player</title>
+    <title>MAG322 Modern Player</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000000; color: #ffffff; font-family: monospace; overflow: hidden; }
         #log { position: absolute; top: 20px; left: 20px; font-size: 24px; background: rgba(0,0,0,0.8); z-index: 9999; width: 90%; word-wrap: break-word; }
@@ -12,59 +12,53 @@
 </head>
 <body>
 
-<div id="log">Инициализация gSTB...<br></div>
-
-<!-- Кастомный индикатор громкости (если системный не сработает) -->
+<div id="log">Инициализация stbPlayer...<br></div>
 <div id="vol_bar"><div id="vol_val"></div></div>
 
 <script type="text/javascript">
     function showLog(text) {
         document.getElementById('log').innerHTML += text + "<br>";
+        document.getElementById('log').style.display = 'block';
     }
 
     var hlsUrl = "ffrt2 https://ur5lgq-iptv-transcoder.hf.space/low.m3u8";
-    var currentVolume = 20; // Громкость по умолчанию (от 0 до 100)
+    var currentVolume = 50;
     var volTimer = null;
 
     window.onload = function() {
-        if (typeof gSTB === "undefined") {
-            showLog("ОШИБКА: Объект gSTB не найден.");
-            return;
-        }
-
-        // Пытаемся считать текущую системную громкость, если это возможно
+        // Проверяем версию API ради интереса в логах
         try {
-            if (typeof gSTB.GetVolume === "function") {
-                currentVolume = gSTB.GetVolume();
+            if (typeof gSTB !== "undefined" && typeof gSTB.Version === "function") {
+                showLog(gSTB.Version());
             }
         } catch(e){}
 
+        // Запуск потока строго через stbPlayer, так как gSTB устарел
         try {
-            if (typeof gSTB.Play === "function") {
-                gSTB.Play(hlsUrl);
-                showLog("Поток запущен через gSTB.Play");
-                hideLogDelayed();
-            }
-        } catch (e1) {
-            try {
-                if (typeof stbPlayer !== "undefined" && typeof stbPlayer.play === "function") {
-                    stbPlayer.play({url: hlsUrl});
-                    showLog("Поток запущен через stbPlayer.play");
-                    hideLogDelayed();
+            if (typeof stbPlayer !== "undefined" && typeof stbPlayer.play === "function") {
+                stbPlayer.play({url: hlsUrl});
+                showLog("Поток запущен через stbPlayer.play");
+                
+                // Считываем начальную громкость из нового объекта
+                if (typeof stbPlayer.volume !== "undefined") {
+                    currentVolume = stbPlayer.volume;
                 }
-            } catch (e2) {
-                showLog("Ошибка запуска: " + e2.message);
+                
+                hideLogDelayed();
+            } else {
+                showLog("ОШИБКА: Объект stbPlayer не найден!");
             }
+        } catch (err) {
+            showLog("Ошибка запуска: " + err.message);
         }
     };
 
     function hideLogDelayed() {
         setTimeout(function() {
             document.getElementById('log').style.display = 'none';
-        }, 3000);
+        }, 4000);
     }
 
-    // Функция управления громкостью
     function changeVolume(dir) {
         if (dir === "up") {
             currentVolume += 5;
@@ -74,13 +68,15 @@
             if (currentVolume < 0) currentVolume = 0;
         }
 
+        // Меняем громкость через stbPlayer.volume
         try {
-            if (typeof gSTB.SetVolume === "function") {
-                gSTB.SetVolume(currentVolume);
+            if (typeof stbPlayer !== "undefined") {
+                stbPlayer.volume = currentVolume;
             }
-        } catch(e){}
+        } catch(e){
+            showLog("Ошибка громкости: " + e.message);
+        }
 
-        // Показываем индикатор громкости на экране
         document.getElementById('vol_val').style.width = currentVolume + "%";
         document.getElementById('vol_bar').style.display = "block";
         
@@ -90,65 +86,53 @@
         }, 2000);
     }
 
-    // Обработка нажатий клавиш пульта MAG
+    // Слушаем нажатия клавиш (расширенный список кодов для MAG322 WebKit)
     document.addEventListener("keydown", function(event) {
         var keyCode = event.keyCode;
+        var keyName = event.key; // Проверяем имя клавиши для Chromium
 
-        // Отменяем стандартное действие браузера для некоторых служебных кнопок
-        if ([8, 27, 114, 115].indexOf(keyCode) > -1) {
+        // Отладочный лог: раскомментируйте строчку ниже, если захотите увидеть код любой нажатой кнопки прямо на ТВ
+        // showLog("Нажата кнопка: Code=" + keyCode + " Name=" + keyName);
+
+        // Обработка ГРОМКОСТИ (вверх)
+        if (keyCode === 38 || keyCode === 449 || keyName === "VolumeUp" || keyCode === 175) {
             event.preventDefault();
+            changeVolume("up");
+        }
+        
+        // Обработка ГРОМКОСТИ (вниз)
+        else if (keyCode === 40 || keyCode === 450 || keyName === "VolumeDown" || keyCode === 174) {
+            event.preventDefault();
+            changeVolume("down");
         }
 
-        switch (keyCode) {
-            case 115: // Кнопка STOP на пульте (или синяя/доп. кнопка на некоторых пультах)
-                try { gSTB.Stop(); } catch(e){}
-                try { stbPlayer.stop(); } catch(e){}
-                showLog("Воспроизведение остановлено.");
-                document.getElementById('log').style.display = 'block';
-                break;
+        // Обработка СТОП
+        else if (keyCode === 115 || keyName === "MediaStop" || keyCode === 178) {
+            event.preventDefault();
+            try { stbPlayer.stop(); showLog("Воспроизведение остановлено (stbPlayer.stop)"); } catch(e){}
+        }
 
-            case 114: // Кнопка PLAY (или возобновление после STOP)
-                document.getElementById('log').style.display = 'block';
-                showLog("Запуск потока...");
-                window.location.reload(); // Перезагрузка страницы — самый надежный способ «PLAY» с нуля
-                break;
+        // Обработка ПЛЕЙ (Возобновление)
+        else if (keyCode === 114 || keyName === "MediaPlayPause" || keyCode === 179) {
+            event.preventDefault();
+            window.location.reload(); // Самый чистый перезапуск потока
+        }
 
-            case 8:  // Кнопка BACK (Назад)
-            case 27: // Кнопка EXIT (Выход)
-                // Возврат во внутренний портал приставки (основное меню MAG)
-                try {
-                    if (typeof gSTB.LoadPage === "function") {
-                        gSTB.LoadPage("file:///home/img/main_menu/index.html"); // Стандартный путь меню MAG
-                    } else if (typeof gSTB.GoBack === "function") {
-                        gSTB.GoBack();
-                    } else {
-                        window.location.href = "about:blank"; // Либо чистая страница, если пути заблокированы
-                    }
-                } catch(e) {
-                    window.location.reload();
+        // Обработка кнопки ВЫХОД / НАЗАД
+        else if (keyCode === 8 || keyCode === 27 || keyName === "Escape" || keyName === "Backspace") {
+            event.preventDefault();
+            showLog("Выход в главное меню...");
+            try {
+                // Пытаемся корректно закрыть плеер и вызвать системное меню
+                stbPlayer.stop();
+                if (typeof gSTB !== "undefined" && typeof gSTB.LoadPage === "function") {
+                    gSTB.LoadPage("file:///home/img/main_menu/index.html");
+                } else {
+                    window.location.href = "about:blank";
                 }
-                break;
-
-            case 38: // Стрелка ВВЕРХ или кнопка Volume+ (зависит от прошивки)
-            case 449: // Родной код Volume+ на приставках MAG
-                changeVolume("up");
-                break;
-
-            case 40: // Стрелка ВНИЗ или кнопка Volume-
-            case 450: // Родной код Volume- на приставках MAG
-                changeVolume("down");
-                break;
-                
-            case 451: // Кнопка MUTE (Без звука)
-                try {
-                    if (typeof gSTB.SetMute === "function") {
-                        // Инвертируем состояние звука
-                        var isMuted = false;
-                        if (typeof gSTB.GetMute === "function") isMuted = gSTB.GetMute();
-                        gSTB.SetMute(!isMuted);
-                    }
-                } catch(e){}
-                break;
+            } catch(e) {
+                window.location.reload();
+            }
         }
     }, false);
 </script>
