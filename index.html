@@ -2,47 +2,60 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>MAG322 Auto Player Fix</title>
+    <title>MAG322 WebKit Player</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000000; color: #ffffff; font-family: monospace; overflow: hidden; }
+        #log { position: absolute; top: 20px; left: 20px; font-size: 24px; background: rgba(0,0,0,0.8); z-index: 9999; width: 90%; word-wrap: break-word; }
     </style>
 </head>
 <body>
+
+<div id="log">Запуск портала...<br></div>
+
 <script type="text/javascript">
-    // Пробуем запустить поток напрямую через системный gstreamer без ffmpeg,
-    // так как он лучше переваривает внешние ссылки на MAG322
-    var hlsUrl = "http://playertest.longtailvideo.com/adaptive/wowzaid3/playlist.m3u8"; 
-
-    window.onload = function() {
-        setTimeout(startPlayback, 1000); // Даем приставке 1 секунду на инициализацию системных библиотек
-    };
-
-    function startPlayback() {
-        try {
-            stb.InitPlayer();
-            stb.SetVideoWindow(0, 0, 1280, 720);
-            stb.SetVideoControlMode(1);
-            stb.SetTopWin(0);
-
-            // Запускаем поток
-            stb.Play(hlsUrl);
-        } catch (e) {
-            // Если упало, пробуем альтернативный вариант с ffmpeg по http
-            try {
-                stb.Play("ffmpeg " + hlsUrl);
-            } catch (err) {
-                console.log("STB Player Crash");
-            }
-        }
+    function showLog(text) {
+        document.getElementById('log').innerHTML += text + "<br>";
     }
 
-    // Защита кнопок
-    document.addEventListener("keydown", function(event) {
-        if (event.keyCode === 27 || event.keyCode === 8) {
-            stb.Stop();
-            startPlayback();
+    // Рабочая тестовая ссылка HLS без шифрования
+    var hlsUrl = "ffmpeg http://playertest.longtailvideo.com/adaptive/wowzaid3/playlist.m3u8";
+
+    window.onload = function() {
+        showLog("Страница загружена. Проверка API...");
+        
+        // Проверяем, видит ли приставка глобальный объект gSTB или stb
+        var targetStb = window.gSTB || window.stb;
+
+        if (!targetStb) {
+            showLog("ОШИБКА: Объект STB не найден. Вы запустили это на ПК?");
+            return;
         }
-    }, false);
+
+        showLog("API найдено. Инициализация плеера...");
+        try {
+            // В MAG322 (WebKit) инициализация часто скрыта или делается через gSTB
+            if (typeof targetStb.InitPlayer === "function") {
+                targetStb.InitPlayer();
+                showLog("Плеер инициализирован.");
+            }
+            
+            // Настройка окна вывода видео
+            if (typeof targetStb.SetVideoWindow === "function") {
+                targetStb.SetVideoWindow(0, 0, 1280, 720);
+            }
+            if (typeof targetStb.SetVideoControlMode === "function") {
+                targetStb.SetVideoControlMode(1);
+            }
+
+            showLog("Попытка запуска потока: " + hlsUrl);
+            targetStb.Play(hlsUrl);
+            showLog("Команда Play отправлена приставке!");
+
+        } catch (e) {
+            showLog("Критическая ошибка JS: " + e.message);
+        }
+    };
 </script>
 </body>
 </html>
+
