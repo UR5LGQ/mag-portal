@@ -2,77 +2,126 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>MAG322 Core Player Fix</title>
+    <title>MAG322 Core Functional Player</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000000; color: #ffffff; font-family: monospace; overflow: hidden; }
         #log { position: absolute; top: 20px; left: 20px; font-size: 24px; background: rgba(0,0,0,0.8); z-index: 9999; width: 90%; word-wrap: break-word; }
+        #vol_bar { position: absolute; bottom: 50px; left: 10%; width: 80%; height: 20px; background: rgba(0,0,0,0.5); border: 2px solid #fff; display: none; z-index: 10000; }
+        #vol_val { height: 100%; background: #00ff00; width: 50%; }
     </style>
 </head>
 <body>
 
-<div id="log">Инициализация gSTB...<br></div>
+<div id="log">Запуск видеопотока gSTB...<br></div>
+<div id="vol_bar"><div id="vol_val"></div></div>
 
 <script type="text/javascript">
     function showLog(text) {
         document.getElementById('log').innerHTML += text + "<br>";
+        document.getElementById('log').style.display = 'block';
     }
 
-    // Ссылка на ваш поток с решением ffrt2 для realtime HTTP трансляций
+    // Полная рабочая ссылка с решением ffrt2
     var hlsUrl = "ffrt2 https://ur5lgq-iptv-transcoder.hf.space/low.m3u8";
+    var currentVolume = 20;
+    var volTimer = null;
 
     window.onload = function() {
-        showLog("Страница загружена. Проверка gSTB...");
-
         if (typeof gSTB === "undefined") {
             showLog("ОШИБКА: Объект gSTB не найден.");
             return;
         }
 
-        showLog("gSTB найден. Пробуем запустить поток...");
-        
-        // Попытка №1: Прямой вызов gSTB.Play
+        // Попытка настроить буфер перед запуском через системные параметры gSTB
         try {
-            if (typeof gSTB.Play === "function") {
-                showLog("Вызов gSTB.Play...");
-                gSTB.Play(hlsUrl);
-                showLog("Команда gSTB.Play отправлена успешно!");
-                hideLogDelayed();
-                return;
-            }
-        } catch (e1) {
-            showLog("Сбой gSTB.Play: " + e1.message);
-        }
+            if (typeof gSTB.SetBufferTime === "function") { gSTB.SetBufferTime(8000); }
+        } catch(e){}
 
-        // Попытка №2: Альтернативный вызов через stbPlayer.play (если первый метод не сработал)
+        // Запуск потока проверенным методом
         try {
-            if (typeof stbPlayer !== "undefined" && typeof stbPlayer.play === "function") {
-                showLog("Вызов stbPlayer.play...");
-                stbPlayer.play({url: hlsUrl});
-                showLog("Команда stbPlayer.play отправлена успешно!");
-                hideLogDelayed();
-                return;
-            } else {
-                showLog("Объект stbPlayer не обнаружен.");
-            }
-        } catch (e2) {
-            showLog("Сбой stbPlayer.play: " + e2.message);
+            gSTB.Play(hlsUrl);
+            showLog("Поток запущен успешно!");
+            hideLogDelayed();
+        } catch (err) {
+            showLog("Ошибка gSTB.Play: " + err.message);
         }
-
-        showLog("ОШИБКА: Не удалось найти рабочий метод воспроизведения.");
     };
 
     function hideLogDelayed() {
         setTimeout(function() {
             document.getElementById('log').style.display = 'none';
-        }, 5000);
+        }, 3000);
     }
 
-    // Перезапуск по кнопкам Назад/Выход
+    // Регулировка звука через gSTB
+    function changeVolume(dir) {
+        if (dir === "up") {
+            currentVolume += 5;
+            if (currentVolume > 100) currentVolume = 100;
+        } else {
+            currentVolume -= 5;
+            if (currentVolume < 0) currentVolume = 0;
+        }
+
+        try {
+            // Если прямой SetVolume работает в вашей версии прошивки
+            if (typeof gSTB.SetVolume === "function") {
+                gSTB.SetVolume(currentVolume);
+            }
+        } catch(e){}
+
+        // Отображение нашего кастомного ползунка звука
+        document.getElementById('vol_val').style.width = currentVolume + "%";
+        document.getElementById('vol_bar').style.display = "block";
+        
+        clearTimeout(volTimer);
+        volTimer = setTimeout(function() {
+            document.getElementById('vol_bar').style.display = "none";
+        }, 2000);
+    }
+
+    // Обработка нажатий по вашей таблице спецификации
     document.addEventListener("keydown", function(event) {
-        if (event.keyCode === 27 || event.keyCode === 8) {
-            try { gSTB.Stop(); } catch(e){}
-            try { stbPlayer.stop(); } catch(e){}
-            window.location.reload(); // Самый надежный способ перезапустить плеер — обновить страницу портала
+        var code = event.keyCode;
+        var alt = event.altKey;
+
+        // Блокируем стандартную реакцию браузера
+        event.preventDefault();
+
+        // 1. Громкость вверх (код 107 или стрелка вверх 38)
+        if (code === 107 || code === 38) {
+            changeVolume("up");
+        } 
+        // 2. Громкость вниз (код 109 or стрелка вниз 40)
+        else if (code === 109 || code === 40) {
+            changeVolume("down");
+        } 
+        // 3. Кнопка STOP (код 83 + Alt)
+        else if (code === 83 && alt) {
+            try { 
+                gSTB.Stop(); 
+                showLog("Трансляция остановлена кнопкой СТОП."); 
+            } catch(e){}
+        } 
+        // 4. Кнопка PLAY (код 82 + Alt)
+        else if (code === 82 && alt) {
+            window.location.reload(); // Перезапуск страницы для возобновления
+        } 
+        // 5. Кнопка MUTE (код 192 + Alt)
+        else if (code === 192 && alt) {
+            try { gSTB.SetMute(!gSTB.GetMute()); } catch(e){}
+        }
+        // 6. Кнопки ВЫХОД / НАЗАД (коды 27 или 8)
+        // Теперь они не просто обновляют страницу, а выходят в родную оболочку MAG322
+        else if (code === 27 || code === 8) {
+            try {
+                gSTB.Stop();
+                // Загружаем домашнюю страницу внутреннего портала приставки
+                gSTB.LoadPage("file:///home/img/main_menu/index.html"); 
+            } catch(e) {
+                // Если путь заблокирован, пробуем альтернативный метод выхода
+                try { gSTB.GoBack(); } catch(err) { window.location.href = "about:blank"; }
+            }
         }
     }, false);
 </script>
