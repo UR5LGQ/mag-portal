@@ -2,150 +2,77 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>MAG322 Core API Player</title>
+    <title>MAG322 Core Player Fix</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000000; color: #ffffff; font-family: monospace; overflow: hidden; }
         #log { position: absolute; top: 20px; left: 20px; font-size: 24px; background: rgba(0,0,0,0.8); z-index: 9999; width: 90%; word-wrap: break-word; }
-        #vol_bar { position: absolute; bottom: 50px; left: 10%; width: 80%; height: 20px; background: rgba(0,0,0,0.5); border: 2px solid #fff; display: none; z-index: 10000; }
-        #vol_val { height: 100%; background: #00ff00; width: 50%; }
     </style>
 </head>
 <body>
 
-<div id="log">Инициализация плеера...<br></div>
-<div id="vol_bar"><div id="vol_val"></div></div>
+<div id="log">Инициализация gSTB...<br></div>
 
 <script type="text/javascript">
     function showLog(text) {
         document.getElementById('log').innerHTML += text + "<br>";
-        document.getElementById('log').style.display = 'block';
     }
 
-    var hlsUrl = "ffrt2 https://ur5lgq-iptv-transcoder.hf.space/low.m3u8";
-    var currentVolume = 50;
-    var volTimer = null;
+    // Ссылка на ваш поток с решением ffrt2 для realtime HTTP трансляций
+    var hlsUrl = "ffrt2 https://hf.space";
 
     window.onload = function() {
-        // Запуск потока
-        try {
-            if (typeof stbPlayer !== "undefined" && typeof stbPlayer.play === "function") {
-                stbPlayer.play({url: hlsUrl});
-                showLog("Видео запущено.");
-                
-                // Чтение текущего уровня громкости (0-100)
-                if (typeof stbPlayer.volume !== "undefined") {
-                    currentVolume = stbPlayer.volume;
-                }
-                
-                hideLogDelayed();
-            } else {
-                showLog("Ошибка: объект stbPlayer не найден.");
-            }
-        } catch (err) {
-            showLog("Ошибка stbPlayer.play: " + err.message);
+        showLog("Страница загружена. Проверка gSTB...");
+
+        if (typeof gSTB === "undefined") {
+            showLog("ОШИБКА: Объект gSTB не найден.");
+            return;
         }
 
-        // Инициализация перехвата системных кнопок пульта MAG
+        showLog("gSTB найден. Пробуем запустить поток...");
+        
+        // Попытка №1: Прямой вызов gSTB.Play
         try {
-            if (typeof stbEvent !== "undefined") {
-                stbEvent.onEvent = function(eventCode, info) {
-                    // Коды событий прошивки Infomir (для пультов)
-                    handleStbEvent(eventCode);
-                };
-                showLog("Обработчик stbEvent подключен.");
+            if (typeof gSTB.Play === "function") {
+                showLog("Вызов gSTB.Play...");
+                gSTB.Play(hlsUrl);
+                showLog("Команда gSTB.Play отправлена успешно!");
+                hideLogDelayed();
+                return;
             }
-        } catch(e) {
-            showLog("Ошибка stbEvent: " + e.message);
+        } catch (e1) {
+            showLog("Сбой gSTB.Play: " + e1.message);
         }
+
+        // Попытка №2: Альтернативный вызов через stbPlayer.play (если первый метод не сработал)
+        try {
+            if (typeof stbPlayer !== "undefined" && typeof stbPlayer.play === "function") {
+                showLog("Вызов stbPlayer.play...");
+                stbPlayer.play({url: hlsUrl});
+                showLog("Команда stbPlayer.play отправлена успешно!");
+                hideLogDelayed();
+                return;
+            } else {
+                showLog("Объект stbPlayer не обнаружен.");
+            }
+        } catch (e2) {
+            showLog("Сбой stbPlayer.play: " + e2.message);
+        }
+
+        showLog("ОШИБКА: Не удалось найти рабочий метод воспроизведения.");
     };
 
     function hideLogDelayed() {
         setTimeout(function() {
             document.getElementById('log').style.display = 'none';
-        }, 3000);
+        }, 5000);
     }
 
-    function changeVolume(dir) {
-        if (dir === "up") {
-            currentVolume += 5;
-            if (currentVolume > 100) currentVolume = 100;
-        } else {
-            currentVolume -= 5;
-            if (currentVolume < 0) currentVolume = 0;
-        }
-
-        try {
-            if (typeof stbPlayer !== "undefined") {
-                stbPlayer.volume = currentVolume; // Запись нового значения напрямую в свойство
-            }
-        } catch(e){
-            showLog("Ошибка изменения громкости: " + e.message);
-        }
-
-        document.getElementById('vol_val').style.width = currentVolume + "%";
-        document.getElementById('vol_bar').style.display = "block";
-        
-        clearTimeout(volTimer);
-        volTimer = setTimeout(function() {
-            document.getElementById('vol_bar').style.display = "none";
-        }, 2000);
-    }
-
-    // Обработка через фирменное системное API Infomir
-    function handleStbEvent(eventCode) {
-        //showLog("Событие пульта: " + eventCode); // Раскомментируйте, чтобы увидеть точные коды кнопок на экране
-
-        switch(parseInt(eventCode)) {
-            case 1: // Традиционный код громкости вверх (Volume +)
-                changeVolume("up");
-                break;
-            case 2: // Традиционный код громкости вниз (Volume -)
-                changeVolume("down");
-                break;
-            case 3: // Кнопка Mute (Отключение звука)
-                try { stbPlayer.mute = !stbPlayer.mute; } catch(e){}
-                break;
-            case 5: // Кнопка EXIT или BACK (Выход/Назад)
-                try {
-                    stbPlayer.stop();
-                    // Возврат в стандартное внутреннее меню приставки
-                    if (typeof gSTB !== "undefined" && typeof gSTB.LoadPage === "function") {
-                        gSTB.LoadPage("file:///home/img/main_menu/index.html");
-                    } else {
-                        window.location.href = "about:blank";
-                    }
-                } catch(e){
-                    window.location.reload();
-                }
-                break;
-        }
-    }
-
-    // Дублирующий стандартный HTML5 обработчик (на случай, если кнопки маппятся как клавиатура)
+    // Перезапуск по кнопкам Назад/Выход
     document.addEventListener("keydown", function(event) {
-        var key = event.key;
-        var code = event.keyCode;
-
-        if (key === "VolumeUp" || code === 38 || code === 175) {
-            event.preventDefault();
-            changeVolume("up");
-        } else if (key === "VolumeDown" || code === 40 || code === 174) {
-            event.preventDefault();
-            changeVolume("down");
-        } else if (key === "MediaStop" || code === 115 || code === 178) {
-            event.preventDefault();
-            try { stbPlayer.stop(); showLog("Остановлено."); } catch(e){}
-        } else if (key === "MediaPlayPause" || code === 114 || code === 179) {
-            event.preventDefault();
-            window.location.reload();
-        } else if (code === 8 || code === 27) { // Назад / Выход
-            event.preventDefault();
-            try {
-                stbPlayer.stop();
-                gSTB.LoadPage("file:///home/img/main_menu/index.html");
-            } catch(e) {
-                window.location.reload();
-            }
+        if (event.keyCode === 27 || event.keyCode === 8) {
+            try { gSTB.Stop(); } catch(e){}
+            try { stbPlayer.stop(); } catch(e){}
+            window.location.reload(); // Самый надежный способ перезапустить плеер — обновить страницу портала
         }
     }, false);
 </script>
