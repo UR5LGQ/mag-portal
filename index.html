@@ -21,7 +21,6 @@
         document.getElementById('log').style.display = 'block';
     }
 
-    // Полная рабочая ссылка с решением ffrt2
     var hlsUrl = "ffrt2 https://ur5lgq-iptv-transcoder.hf.space/low.m3u8";
     var currentVolume = 20;
     var volTimer = null;
@@ -32,12 +31,6 @@
             return;
         }
 
-        // Попытка настроить буфер перед запуском через системные параметры gSTB
-        try {
-            if (typeof gSTB.SetBufferTime === "function") { gSTB.SetBufferTime(8000); }
-        } catch(e){}
-
-        // Запуск потока проверенным методом
         try {
             gSTB.Play(hlsUrl);
             showLog("Поток запущен успешно!");
@@ -53,7 +46,6 @@
         }, 3000);
     }
 
-    // Регулировка звука через gSTB
     function changeVolume(dir) {
         if (dir === "up") {
             currentVolume += 5;
@@ -63,14 +55,15 @@
             if (currentVolume < 0) currentVolume = 0;
         }
 
+        // Альтернативный перебор методов регулировки звука для MAG322
         try {
-            // Если прямой SetVolume работает в вашей версии прошивки
             if (typeof gSTB.SetVolume === "function") {
                 gSTB.SetVolume(currentVolume);
+            } else if (typeof window.stbPlayer !== "undefined") {
+                window.stbPlayer.volume = currentVolume;
             }
         } catch(e){}
 
-        // Отображение нашего кастомного ползунка звука
         document.getElementById('vol_val').style.width = currentVolume + "%";
         document.getElementById('vol_bar').style.display = "block";
         
@@ -80,48 +73,42 @@
         }, 2000);
     }
 
-    // Обработка нажатий по вашей таблице спецификации
     document.addEventListener("keydown", function(event) {
         var code = event.keyCode;
         var alt = event.altKey;
 
-        // Блокируем стандартную реакцию браузера
-        event.preventDefault();
-
-        // 1. Громкость вверх (код 107 или стрелка вверх 38)
-        if (code === 107 || code === 38) {
+        // Обработка СТОП (код 83 + Alt)
+        if (code === 83 && alt) {
+            event.preventDefault();
+            try { gSTB.Stop(); showLog("Трансляция остановлена кнопкой СТОП."); } catch(e){}
+        } 
+        // Обработка ПЛЕЙ (код 82 + Alt)
+        else if (code === 82 && alt) {
+            event.preventDefault();
+            window.location.reload(); 
+        } 
+        // Обработка ГРОМКОСТИ ВВЕРХ (код 107 или стрелка 38)
+        else if (code === 107 || code === 38) {
+            // Убираем preventDefault для громкости, чтобы ОС приставки тоже видела нажатие
             changeVolume("up");
         } 
-        // 2. Громкость вниз (код 109 or стрелка вниз 40)
+        // Обработка ГРОМКОСТИ ВНИЗ (код 109 или стрелка 40)
         else if (code === 109 || code === 40) {
             changeVolume("down");
         } 
-        // 3. Кнопка STOP (код 83 + Alt)
-        else if (code === 83 && alt) {
-            try { 
-                gSTB.Stop(); 
-                showLog("Трансляция остановлена кнопкой СТОП."); 
-            } catch(e){}
-        } 
-        // 4. Кнопка PLAY (код 82 + Alt)
-        else if (code === 82 && alt) {
-            window.location.reload(); // Перезапуск страницы для возобновления
-        } 
-        // 5. Кнопка MUTE (код 192 + Alt)
+        // Обработка кнопки MUTE (код 192 + Alt)
         else if (code === 192 && alt) {
+            event.preventDefault();
             try { gSTB.SetMute(!gSTB.GetMute()); } catch(e){}
         }
-        // 6. Кнопки ВЫХОД / НАЗАД (коды 27 или 8)
-        // Теперь они не просто обновляют страницу, а выходят в родную оболочку MAG322
+        // Обработка ВЫХОД / НАЗАД (коды 27 или 8)
         else if (code === 27 || code === 8) {
-            try {
-                gSTB.Stop();
-                // Загружаем домашнюю страницу внутреннего портала приставки
-                gSTB.LoadPage("file:///home/img/main_menu/index.html"); 
-            } catch(e) {
-                // Если путь заблокирован, пробуем альтернативный метод выхода
-                try { gSTB.GoBack(); } catch(err) { window.location.href = "about:blank"; }
-            }
+            // НЕ блокируем дефолтное действие браузера (убираем event.preventDefault())
+            try { gSTB.Stop(); } catch(e){}
+            
+            // Самый надежный способ заставить Chromium на MAG322 выйти во внутренний портал:
+            // отправляем приставку на несуществующую пустую локальную страницу
+            window.location.href = "about:blank"; 
         }
     }, false);
 </script>
