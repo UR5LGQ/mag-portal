@@ -2,118 +2,216 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>MAG322 Key Test</title>
+<title>MAG322 IPTV Portal</title>
 
 <style>
 html,body{
-    margin:0;
-    padding:0;
     width:100%;
     height:100%;
+    margin:0;
+    padding:0;
+    overflow:hidden;
     background:#000;
-    color:#00ff00;
-    font-family:monospace;
 }
 
-#title{
-    padding:20px;
-    font-size:36px;
+#info{
+    position:absolute;
+    top:20px;
+    left:20px;
+    z-index:9999;
     color:#fff;
-}
-
-#current{
-    padding:20px;
-    font-size:42px;
-    color:#ffff00;
-    border-bottom:2px solid #444;
-}
-
-#log{
-    padding:20px;
-    font-size:28px;
-    overflow:auto;
-    height:70%;
+    background:rgba(0,0,0,.7);
+    padding:10px;
+    font-family:Arial;
+    font-size:22px;
+    display:none;
 }
 </style>
 </head>
 
 <body>
 
-<div id="title">
-MAG322 KEY TEST (JS API 344)
-</div>
-
-<div id="current">
-Нажмите любую кнопку...
-</div>
-
-<div id="log"></div>
+<div id="info"></div>
 
 <script>
 
-function addLog(text)
+var STREAM =
+"ffrt2 https://ur5lgq-iptv-transcoder.hf.space/low.m3u8";
+
+var paused=false;
+
+function showInfo(text)
 {
-    var log=document.getElementById("log");
+    var el=document.getElementById("info");
 
-    var div=document.createElement("div");
-    div.innerHTML=text;
+    el.innerHTML=text;
+    el.style.display="block";
 
-    log.insertBefore(div,log.firstChild);
+    clearTimeout(window.infoTimer);
 
-    while(log.children.length>30)
+    window.infoTimer=setTimeout(function(){
+        el.style.display="none";
+    },3000);
+}
+
+function setWindow70()
+{
+    try
     {
-        log.removeChild(log.lastChild);
+        if(typeof stb!="undefined")
+        {
+            stb.SetVideoWindow(
+                288,
+                162,
+                1344,
+                756
+            );
+        }
+    }
+    catch(e){}
+}
+
+function setFullscreen()
+{
+    try
+    {
+        if(typeof stb!="undefined")
+        {
+            stb.SetVideoWindow(
+                0,
+                0,
+                1920,
+                1080
+            );
+        }
+    }
+    catch(e){}
+}
+
+function startPlayer()
+{
+    try
+    {
+        gSTB.Play(STREAM);
+
+        setWindow70();
+
+        paused=false;
+
+        showInfo("PLAY");
+    }
+    catch(e)
+    {
+        showInfo("ERROR: "+e.message);
     }
 }
 
-function showEvent(name,e)
+function stopPlayer()
 {
-    var txt=
-        "EVENT="+name+
-        " | keyCode="+e.keyCode+
-        " | which="+e.which+
-        " | charCode="+(e.charCode||0);
-
-    document.getElementById("current").innerHTML=txt;
-
-    addLog(txt);
-
-    console.log(txt);
+    try
+    {
+        gSTB.Stop();
+        showInfo("STOP");
+    }
+    catch(e){}
 }
 
-document.addEventListener(
-    "keydown",
-    function(e)
+function pauseResume()
+{
+    try
     {
-        showEvent("keydown",e);
-    },
-    false
-);
-
-document.addEventListener(
-    "keyup",
-    function(e)
-    {
-        showEvent("keyup",e);
-    },
-    false
-);
+        if(paused)
+        {
+            gSTB.Play(STREAM);
+            paused=false;
+            showInfo("PLAY");
+        }
+        else
+        {
+            gSTB.Pause();
+            paused=true;
+            showInfo("PAUSE");
+        }
+    }
+    catch(e){}
+}
 
 window.onload=function()
 {
-    addLog("Готов к тестированию пульта.");
-    addLog("Проверьте:");
-    addLog("PLAY");
-    addLog("PAUSE");
-    addLog("STOP");
-    addLog("EXIT");
-    addLog("BACK");
-    addLog("MENU");
-    addLog("VOL+");
-    addLog("VOL-");
-    addLog("MUTE");
-    addLog("Красная/Зелёная/Жёлтая/Синяя");
+    startPlayer();
 };
+
+document.onkeydown=function(e)
+{
+    var key=e.keyCode;
+
+    switch(key)
+    {
+
+        case 82:
+            pauseResume();
+            return false;
+
+        case 83:
+            stopPlayer();
+            return false;
+
+        case 8:
+        case 27:
+
+            stopPlayer();
+
+            try
+            {
+                window.close();
+            }
+            catch(err)
+            {
+                history.back();
+            }
+
+            return false;
+
+        case 13:
+
+            stopPlayer();
+
+            setTimeout(function(){
+                startPlayer();
+            },500);
+
+            return false;
+
+        case 112:
+
+            setWindow70();
+            showInfo("70%");
+            return false;
+
+        case 113:
+
+            setFullscreen();
+            showInfo("FULLSCREEN");
+            return false;
+
+        case 114:
+
+            window.location.reload();
+            return false;
+
+        case 115:
+
+            showInfo(
+                "MAG322<br>" +
+                "JS API 344<br>" +
+                "Stream OK"
+            );
+            return false;
+    }
+
+    return true;
+};
+
 </script>
 
 </body>
