@@ -1,215 +1,36 @@
 <!DOCTYPE html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>MAG322 IPTV Portal</title>
+<body style="background:black;color:white;font-size:24px">
 
-<style>
-html,body{
-    width:100%;
-    height:100%;
-    margin:0;
-    padding:0;
-    overflow:hidden;
-    background:#000;
-}
-
-#info{
-    position:absolute;
-    top:20px;
-    left:20px;
-    z-index:9999;
-    color:#fff;
-    background:rgba(0,0,0,.7);
-    padding:10px;
-    font-family:Arial;
-    font-size:22px;
-    display:none;
-}
-</style>
-</head>
-
-<body>
-
-<div id="info"></div>
+<pre id="out"></pre>
 
 <script>
 
-var STREAM =
-"ffrt2 https://ur5lgq-iptv-transcoder.hf.space/low.m3u8";
-
-var paused=false;
-
-function showInfo(text)
-{
-    var el=document.getElementById("info");
-
-    el.innerHTML=text;
-    el.style.display="block";
-
-    clearTimeout(window.infoTimer);
-
-    window.infoTimer=setTimeout(function(){
-        el.style.display="none";
-    },3000);
+function p(t){
+document.getElementById('out').innerHTML+=t+"\n";
 }
 
-function setWindow70()
+window.onload=function(){
+
+p("gSTB = "+typeof gSTB);
+p("stb = "+typeof stb);
+
+if(typeof gSTB!="undefined")
 {
-    try
-    {
-        if(typeof stb!="undefined")
-        {
-            stb.SetVideoWindow(
-                288,
-                162,
-                1344,
-                756
-            );
-        }
-    }
-    catch(e){}
+for(var k in gSTB)
+{
+p("gSTB."+k);
+}
 }
 
-function setFullscreen()
+if(typeof stb!="undefined")
 {
-    try
-    {
-        if(typeof stb!="undefined")
-        {
-            stb.SetVideoWindow(
-                0,
-                0,
-                1920,
-                1080
-            );
-        }
-    }
-    catch(e){}
+for(var k in stb)
+{
+p("stb."+k);
+}
 }
 
-function startPlayer()
-{
-    try
-    {
-        gSTB.Play(STREAM);
-
-        setWindow70();
-
-        paused=false;
-
-        showInfo("PLAY");
-    }
-    catch(e)
-    {
-        showInfo("ERROR: "+e.message);
-    }
-}
-
-function stopPlayer()
-{
-    try
-    {
-        gSTB.Stop();
-        showInfo("STOP");
-    }
-    catch(e){}
-}
-
-function pauseResume()
-{
-    try
-    {
-        if(paused)
-        {
-            gSTB.Play(STREAM);
-            paused=false;
-            showInfo("PLAY");
-        }
-        else
-        {
-            gSTB.Pause();
-            paused=true;
-            showInfo("PAUSE");
-        }
-    }
-    catch(e){}
-}
-
-window.onload=function()
-{
-    startPlayer();
-};
-
-document.onkeydown=function(e)
-{
-    var key=e.keyCode;
-
-    switch(key)
-    {
-
-        case 82:
-            pauseResume();
-            return false;
-
-        case 83:
-            stopPlayer();
-            return false;
-
-        case 8:
-        case 27:
-
-            stopPlayer();
-
-            try
-            {
-                window.close();
-            }
-            catch(err)
-            {
-                history.back();
-            }
-
-            return false;
-
-        case 13:
-
-            stopPlayer();
-
-            setTimeout(function(){
-                startPlayer();
-            },500);
-
-            return false;
-
-        case 112:
-
-            setWindow70();
-            showInfo("70%");
-            return false;
-
-        case 113:
-
-            setFullscreen();
-            showInfo("FULLSCREEN");
-            return false;
-
-        case 114:
-
-            window.location.reload();
-            return false;
-
-        case 115:
-
-            showInfo(
-                "MAG322<br>" +
-                "JS API 344<br>" +
-                "Stream OK"
-            );
-            return false;
-    }
-
-    return true;
 };
 
 </script>
