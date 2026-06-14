@@ -37,7 +37,7 @@ html,body{
 <script>
 
 var STREAM_URL =
-"ffrt2 https://ur5lgq-iptv-transcoder.hf.space/low.m3u8";
+"ffrt3 https://ur5lgq-iptv-transcoder.hf.space/low.m3u8";
 
 var paused = false;
 var muted = false;
@@ -106,7 +106,14 @@ function setFullscreen()
 function startPlayback()
 {
     try
-    {
+    {   
+        gSTB.SetVolume(volume);
+        
+        gSTB.SetBufferSize(
+            5000,
+            15000000
+        );
+
         gSTB.Play(STREAM_URL);
 
         setTimeout(function(){
