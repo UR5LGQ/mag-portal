@@ -1,116 +1,120 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title>MAG322 Core Functional Player</title>
-    <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000000; color: #ffffff; font-family: monospace; overflow: hidden; }
-        #log { position: absolute; top: 20px; left: 20px; font-size: 24px; background: rgba(0,0,0,0.8); z-index: 9999; width: 90%; word-wrap: break-word; }
-        #vol_bar { position: absolute; bottom: 50px; left: 10%; width: 80%; height: 20px; background: rgba(0,0,0,0.5); border: 2px solid #fff; display: none; z-index: 10000; }
-        #vol_val { height: 100%; background: #00ff00; width: 50%; }
-    </style>
+<meta charset="utf-8">
+<title>MAG322 Key Test</title>
+
+<style>
+html,body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    background:#000;
+    color:#00ff00;
+    font-family:monospace;
+}
+
+#title{
+    padding:20px;
+    font-size:36px;
+    color:#fff;
+}
+
+#current{
+    padding:20px;
+    font-size:42px;
+    color:#ffff00;
+    border-bottom:2px solid #444;
+}
+
+#log{
+    padding:20px;
+    font-size:28px;
+    overflow:auto;
+    height:70%;
+}
+</style>
 </head>
+
 <body>
 
-<div id="log">Запуск видеопотока gSTB...<br></div>
-<div id="vol_bar"><div id="vol_val"></div></div>
+<div id="title">
+MAG322 KEY TEST (JS API 344)
+</div>
 
-<script type="text/javascript">
-    function showLog(text) {
-        document.getElementById('log').innerHTML += text + "<br>";
-        document.getElementById('log').style.display = 'block';
+<div id="current">
+Нажмите любую кнопку...
+</div>
+
+<div id="log"></div>
+
+<script>
+
+function addLog(text)
+{
+    var log=document.getElementById("log");
+
+    var div=document.createElement("div");
+    div.innerHTML=text;
+
+    log.insertBefore(div,log.firstChild);
+
+    while(log.children.length>30)
+    {
+        log.removeChild(log.lastChild);
     }
+}
 
-    var hlsUrl = "ffrt2 https://ur5lgq-iptv-transcoder.hf.space/low.m3u8";
-    var currentVolume = 20;
-    var volTimer = null;
+function showEvent(name,e)
+{
+    var txt=
+        "EVENT="+name+
+        " | keyCode="+e.keyCode+
+        " | which="+e.which+
+        " | charCode="+(e.charCode||0);
 
-    window.onload = function() {
-        if (typeof gSTB === "undefined") {
-            showLog("ОШИБКА: Объект gSTB не найден.");
-            return;
-        }
+    document.getElementById("current").innerHTML=txt;
 
-        try {
-            gSTB.Play(hlsUrl);
-            showLog("Поток запущен успешно!");
-            hideLogDelayed();
-        } catch (err) {
-            showLog("Ошибка gSTB.Play: " + err.message);
-        }
-    };
+    addLog(txt);
 
-    function hideLogDelayed() {
-        setTimeout(function() {
-            document.getElementById('log').style.display = 'none';
-        }, 3000);
-    }
+    console.log(txt);
+}
 
-    function changeVolume(dir) {
-        if (dir === "up") {
-            currentVolume += 5;
-            if (currentVolume > 100) currentVolume = 100;
-        } else {
-            currentVolume -= 5;
-            if (currentVolume < 0) currentVolume = 0;
-        }
+document.addEventListener(
+    "keydown",
+    function(e)
+    {
+        showEvent("keydown",e);
+    },
+    false
+);
 
-        // Альтернативный перебор методов регулировки звука для MAG322
-        try {
-            if (typeof gSTB.SetVolume === "function") {
-                gSTB.SetVolume(currentVolume);
-            } else if (typeof window.stbPlayer !== "undefined") {
-                window.stbPlayer.volume = currentVolume;
-            }
-        } catch(e){}
+document.addEventListener(
+    "keyup",
+    function(e)
+    {
+        showEvent("keyup",e);
+    },
+    false
+);
 
-        document.getElementById('vol_val').style.width = currentVolume + "%";
-        document.getElementById('vol_bar').style.display = "block";
-        
-        clearTimeout(volTimer);
-        volTimer = setTimeout(function() {
-            document.getElementById('vol_bar').style.display = "none";
-        }, 2000);
-    }
-
-    document.addEventListener("keydown", function(event) {
-        var code = event.keyCode;
-        var alt = event.altKey;
-
-        // Обработка СТОП (код 83 + Alt)
-        if (code === 83 && alt) {
-            event.preventDefault();
-            try { gSTB.Stop(); showLog("Трансляция остановлена кнопкой СТОП."); } catch(e){}
-        } 
-        // Обработка ПЛЕЙ (код 82 + Alt)
-        else if (code === 82 && alt) {
-            event.preventDefault();
-            window.location.reload(); 
-        } 
-        // Обработка ГРОМКОСТИ ВВЕРХ (код 107 или стрелка 38)
-        else if (code === 107 || code === 38) {
-            // Убираем preventDefault для громкости, чтобы ОС приставки тоже видела нажатие
-            changeVolume("up");
-        } 
-        // Обработка ГРОМКОСТИ ВНИЗ (код 109 или стрелка 40)
-        else if (code === 109 || code === 40) {
-            changeVolume("down");
-        } 
-        // Обработка кнопки MUTE (код 192 + Alt)
-        else if (code === 192 && alt) {
-            event.preventDefault();
-            try { gSTB.SetMute(!gSTB.GetMute()); } catch(e){}
-        }
-        // Обработка ВЫХОД / НАЗАД (коды 27 или 8)
-        else if (code === 27 || code === 8) {
-            // НЕ блокируем дефолтное действие браузера (убираем event.preventDefault())
-            try { gSTB.Stop(); } catch(e){}
-            
-            // Самый надежный способ заставить Chromium на MAG322 выйти во внутренний портал:
-            // отправляем приставку на несуществующую пустую локальную страницу
-            window.location.href = "about:blank"; 
-        }
-    }, false);
+window.onload=function()
+{
+    addLog("Готов к тестированию пульта.");
+    addLog("Проверьте:");
+    addLog("PLAY");
+    addLog("PAUSE");
+    addLog("STOP");
+    addLog("EXIT");
+    addLog("BACK");
+    addLog("MENU");
+    addLog("VOL+");
+    addLog("VOL-");
+    addLog("MUTE");
+    addLog("Красная/Зелёная/Жёлтая/Синяя");
+};
 </script>
+
 </body>
 </html>
