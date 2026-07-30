@@ -13,7 +13,47 @@
         input[type="submit"] { background: #0066cc; color: white; border: none; padding: 12px 20px; margin-top: 20px; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; }
         input[type="submit"]:hover { background: #0052a3; }
         .status { background: #e2f0d9; color: #385723; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; display: {% if status %}block{% else %}none{% endif %}; }
-        .info-box { background: #eee; padding: 10px; border-radius: 4px; font-size: 13px; font-family: monospace; word-break: break-all; margin-top: 15px; }
+        .info-box { background: #eee; padding: 10px; border-radius: 4px; font-size: 13px; font-family: monospace; word-break: break-all; margin-top: 15px; margin-bottom: 20px; }
+
+        /* --- Стили для встроенного видеоплеера --- */
+        .video-wrapper {
+            max-width: 100%;
+            position: relative;
+            cursor: pointer;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 102, 204, 0.85); /* Синий цвет под стиль панели */
+            border-radius: 50%;
+            z-index: 2;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        .play-button::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 55%;
+            transform: translate(-50%, -50%);
+            border-style: solid;
+            border-width: 12px 0 12px 20px;
+            border-color: transparent transparent transparent #ffffff;
+        }
+        .video-wrapper:hover .play-button {
+            background: rgba(0, 82, 163, 1);
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+        video {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -37,11 +77,40 @@
             </select>
             <input type="submit" value="Сохранить и Обновить">
         </form>
+        
         <div class="info-box">
             <strong>Ссылка для вашей приставки:</strong><br>
             http://{{ host }}:8000/playlist.m3u<br><br>
             <strong>Элементов в базе:</strong> {{ channels_count }}
         </div>
+
+        <!-- Раздел с плеером предварительного просмотра -->
+        <label>Предпросмотр трансляции:</label>
+        <div class="video-wrapper" onclick="playVideo(this)">
+            <div class="play-button"></div>
+            <video id="myVideo" width="100%" loop playsinline controls poster="https://pexels.com">
+                <source src="https://pixabay.com" type="video/mp4">
+                Ваш браузер не поддерживает тег video.
+            </video>
+        </div>
     </div>
+
+    <script>
+    function playVideo(container) {
+      const video = container.querySelector('#myVideo');
+      const playBtn = container.querySelector('.play-button');
+      
+      video.muted = false;
+      video.play();
+      
+      if (playBtn) {
+        playBtn.remove();
+      }
+      
+      container.removeAttribute('onclick');
+      container.style.cursor = 'default';
+    }
+    </script>
 </body>
 </html>
+
