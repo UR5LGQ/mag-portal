@@ -1,116 +1,202 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>IPTV & YouTube Transcoder Panel</title>
+    <meta charset="UTF-8">
+    <title>MAG322 Legacy Portal</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f6f9; color: #333; padding: 20px; text-align: center; }
-        .card { background: white; max-width: 500px; margin: 30px auto; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: left; }
-        h2 { margin-top: 0; color: #0066cc; }
-        label { font-weight: bold; display: block; margin-top: 15px; margin-bottom: 5px; }
-        input[type="text"], select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
-        input[type="submit"] { background: #0066cc; color: white; border: none; padding: 12px 20px; margin-top: 20px; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; }
-        input[type="submit"]:hover { background: #0052a3; }
-        .status { background: #e2f0d9; color: #385723; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; display: {% if status %}block{% else %}none{% endif %}; }
-        .info-box { background: #eee; padding: 10px; border-radius: 4px; font-size: 13px; font-family: monospace; word-break: break-all; margin-top: 15px; margin-bottom: 20px; }
-
-        /* --- Стили для встроенного видеоплеера --- */
-        .video-wrapper {
-            max-width: 100%;
-            position: relative;
-            cursor: pointer;
-            border-radius: 6px;
+        /* Делаем прозрачный фон, чтобы видео было видно под интерфейсом */
+        body {
+            background-color: transparent; 
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 30px;
             overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .play-button {
+        .menu-box {
+            background: rgba(20, 20, 20, 0.85); /* Полупрозрачная плашка меню */
+            padding: 20px;
+            width: 400px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+        h1 { font-size: 22px; margin-top: 0; color: #ffaa00; }
+        .info { font-size: 14px; color: #aaa; margin-bottom: 15px; }
+        ul { list-style: none; padding: 0; margin: 0; }
+        li {
+            padding: 12px 15px;
+            background: #2a2a2a;
+            margin-bottom: 6px;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        /* Подсветка активного канала кнопками ВВЕРХ/ВНИЗ */
+        li.active {
+            background: #ffaa00;
+            color: #000000;
+            font-weight: bold;
+        }
+        /* Статус-бар внизу экрана */
+        #status-bar {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 60px;
-            height: 60px;
-            background: rgba(0, 102, 204, 0.85); /* Синий цвет под стиль панели */
-            border-radius: 50%;
-            z-index: 2;
-            transition: all 0.3s ease;
-            pointer-events: none;
-        }
-        .play-button::after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            left: 55%;
-            transform: translate(-50%, -50%);
-            border-style: solid;
-            border-width: 12px 0 12px 20px;
-            border-color: transparent transparent transparent #ffffff;
-        }
-        .video-wrapper:hover .play-button {
-            background: rgba(0, 82, 163, 1);
-            transform: translate(-50%, -50%) scale(1.1);
-        }
-        video {
-            display: block;
+            bottom: 30px;
+            left: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <div style="margin-bottom: 20px;">
-    <a href="https://www.youtube.com/@hatanatata/videos" target="_blank" style="color: #0066cc; font-weight: bold; text-decoration: none; border: 1px solid #0066cc; padding: 10px 20px; border-radius: 4px;">
-        Открыть YouTube канал @hatanatata
-    </a>
-    </div>
-    <div class="card">
-        <h2>Управление IPTV + YouTube</h2>
-        <div class="status">{{ status }}</div>
-        <form method="post" action="/admin/save">
-            <label>Ссылка на IPTV (.m3u) ИЛИ Плейлист YouTube:</label>
-            <input type="text" name="playlist_url" value="{{ config.playlist_url }}" required>
-            <label>Качество сжатия видео (Разрешение):</label>
-            <select name="quality">
-                <option value="426:240|500k">240p (Экономия максимальная ~130 МБ/час)</option>
-                <option value="640:360|750k">360p (Очень экономно ~220 МБ/час)</option>
-                <option value="854:480|1000k">480p (Оптимально для мобильного ~360 МБ/час)</option>
-                <option value="1280:720|1250k">720p HD (Хорошее качество ~580 МБ/час)</option>
-            </select>
-            <input type="submit" value="Сохранить и Обновить">
-        </form>
-        
-        <div class="info-box">
-            <strong>Ссылка для вашей приставки:</strong><br>
-            http://{{ host }}:8000/playlist.m3u<br><br>
-            <strong>Элементов в базе:</strong> {{ channels_count }}
-        </div>
 
-        <!-- Раздел с плеером предварительного просмотра -->
-        <label>Предпросмотр трансляции:</label>
-        <div class="video-wrapper" onclick="playVideo(this)">
-            <div class="play-button"></div>
-            <video id="myVideo" width="100%" loop playsinline controls poster="https://pexels.com">
-                <source src="https://pixabay.com" type="video/mp4">
-                Ваш браузер не поддерживает тег video.
-            </video>
-        </div>
+    <div class="menu-box">
+        <h1>Legacy IPTV Портал</h1>
+        <div class="info">Навигация: CH+ / CH- (или Стрелки)<br>Выбор: OK | Стоп: EXIT<br>Громкость: Vol+ / Vol-</div>
+        
+        <ul id="channelList">
+            <!-- Каналы добавятся через JS -->
+        </ul>
     </div>
+
+    <div id="status-bar">Статус: Готов к работе</div>
 
     <script>
-    function playVideo(container) {
-      const video = container.querySelector('#myVideo');
-      const playBtn = container.querySelector('.play-button');
-      
-      video.muted = false;
-      video.play();
-      
-      if (playBtn) {
-        playBtn.remove();
-      }
-      
-      container.removeAttribute('onclick');
-      container.style.cursor = 'default';
-    }
+        // Тестовый список каналов
+        var channels = [
+            { name: "Тестовое видео (M2V)", url: "http://www.mediacollege.com/downloads/video/timecode/tc_25fps_20mins.m2v" },
+            { name: "Тестовый стрим (HLS)", url: "http://138.3.253.85:8000/stream/74.ts" }
+        ];
+
+        var currentIndex = 0;
+        var isStb = (typeof gSTB !== 'undefined');
+
+        // 1. Инициализация плеера (Раздел Playback preparations из вашего туториала)
+        window.onload = function() {
+            if (isStb) {
+                gSTB.InitPlayer();
+                gSTB.SetAspect(0x10);       // Формат экрана (16:9)
+                gSTB.SetVideoControl(1);   // Включаем вывод видео (1 — видео под HTML слоем)
+                gSTB.SetVideoState(1);     // Включаем видеодекодер
+                gSTB.SetTopWin(0);         // Приоритет окон графики
+                gSTB.SetViewport(1280, 720, 0, 0); // Видео на весь экран HD
+            } else {
+                showStatus("Запущено в обычном браузере (gSTB недоступен)");
+            }
+
+            renderList();
+            updateSelection();
+        };
+
+        // 2. Инициализация модели событий (Раздел Event model из туториала)
+        window.stbEvent = {
+            onEvent: function ( event ) {
+                switch ( Number(event) ) {
+                    case 1:
+                        showStatus("Статус: Нажмите OK для загрузки...");
+                        break;
+                    case 2:
+                        showStatus("Статус: Получена информация о дорожках.");
+                        console.log('Information on audio and video tracks received.');
+                        break;
+                    case 4:
+                        showStatus("Статус: Воспроизведение началось");
+                        console.log('Video playback has begun.');
+                        break;
+                    case 5:
+                        showStatus("Ошибка: Не удалось открыть поток");
+                        break;
+                }
+            }
+        };
+
+        function renderList() {
+            var html = "";
+            channels.forEach(function(ch, idx) {
+                html += '<li id="ch_' + idx + '">' + ch.name + '</li>';
+            });
+            document.getElementById("channelList").innerHTML = html;
+        }
+
+        function updateSelection() {
+            channels.forEach(function(ch, idx) {
+                var el = document.getElementById("ch_" + idx);
+                if (el) el.className = (idx === currentIndex) ? "active" : "";
+            });
+        }
+
+        function showStatus(text) {
+            document.getElementById("status-bar").innerText = text;
+        }
+
+        // 3. Управление плеером и события ввода (Раздел Player manipulations из туториала)
+        window.addEventListener('keydown', function ( event ) {
+            var keyCode = event.keyCode || event.which;
+            
+            if (isStb) {
+                var volume = gSTB.GetVolume();
+            }
+
+            switch ( keyCode ) {
+                case 38: // Стрелка ВВЕРХ
+                case 33: // Кнопка PageUp / CH+ на некоторых пультах MAG
+                    if (currentIndex > 0) {
+                        currentIndex--;
+                        updateSelection();
+                    }
+                    event.preventDefault();
+                    break;
+
+                case 40: // Стрелка ВНИЗ
+                case 34: // Кнопка PageDown / CH-
+                    if (currentIndex < channels.length - 1) {
+                        currentIndex++;
+                        updateSelection();
+                    }
+                    event.preventDefault();
+                    break;
+
+                case 13: // Кнопка OK — Запуск видео (Раздел Play video)
+                    showStatus("Статус: Подключение...");
+                    var targetUrl = channels[currentIndex].url;
+                    
+                    if (isStb) {
+                        // Используем точную конструкцию склейки решения auto и ссылки
+                        gSTB.Play('auto ' + targetUrl);
+                    } else {
+                        showStatus("Эмуляция: Играет " + channels[currentIndex].name);
+                    }
+                    event.preventDefault();
+                    break;
+
+                case 107: // Кнопка Громкость ВВЕРХ (Vol +)
+                case 449: // Системный код громкости на некоторых прошивках MAG
+                    if (isStb && volume < 100) {
+                        volume++;
+                        gSTB.SetVolume(volume);
+                        showStatus("Громкость: " + volume + "%");
+                    }
+                    break;
+
+                case 109: // Кнопка Громкость ВНИЗ (Vol -)
+                case 450: // Системный код громкости минус
+                    if (isStb && volume > 0) {
+                        volume--;
+                        gSTB.SetVolume(volume);
+                        showStatus("Громкость: " + volume + "%");
+                    }
+                    break;
+
+                case 27: // Кнопка EXIT / ESC
+                case 8:  // Кнопка BACK
+                    if (isStb) {
+                        gSTB.Stop();
+                    }
+                    showStatus("Статус: Воспроизведение остановлено");
+                    event.preventDefault();
+                    break;
+            }
+        });
     </script>
 </body>
 </html>
-
