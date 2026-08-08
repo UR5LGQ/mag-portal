@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <title>MAG322 Custom Portal</title>
     <style>
-        /* Полная прозрачность body, чтобы видеть уменьшенное видео-окно позади */
         body {
-            background-color: transparent; 
+            background-color: #1a1a1a; /* На ПК делаем темный фон, чтобы видеть разметку */
             color: #ffffff;
             font-family: Arial, sans-serif;
             margin: 0;
@@ -16,17 +15,24 @@
             overflow: hidden;
             position: relative;
         }
+        
+        /* На приставке MAG делаем фон прозрачным поверх видео */
+        @media screen and (max-width: 1280px) {
+            body { background-color: transparent; }
+        }
 
-        /* Ограничивающая рамка, показывающая где находится видео-окно (на 10% меньше) */
+        /* Визуальный контур уменьшенного плеера */
         .video-border {
             position: absolute;
-            width: 1152px;  /* 1280 - 10% */
-            height: 648px;  /* 720 - 10% */
-            left: 64px;     /* Центрирование по горизонтали */
-            top: 36px;      /* Центрирование по вертикали */
+            width: 1152px;  
+            height: 648px;  
+            left: 64px;     
+            top: 36px;      
             border: 2px solid rgba(255, 255, 255, 0.2);
             box-sizing: border-box;
             pointer-events: none;
+            background: #000000; /* Черная подложка имитирует экран плеера на ПК */
+            z-index: 1;
         }
 
         /* Полупрозрачное меню слева */
@@ -80,7 +86,7 @@
             display: flex;
             align-items: center;
             box-shadow: 0 0 15px rgba(0,0,0,0.5);
-            opacity: 0; /* Изначально скрыт */
+            opacity: 0; 
             transition: opacity 0.3s ease;
             z-index: 20;
         }
@@ -99,7 +105,7 @@
             overflow: hidden;
         }
         .volume-fill {
-            width: 10%; /* Изменяется динамически через JS */
+            width: 10%; 
             height: 100%;
             background: #ffaa00;
         }
@@ -107,13 +113,13 @@
 </head>
 <body>
 
-    <!-- Визуальный контур уменьшенного плеера -->
+    <!-- Имитация экрана плеера -->
     <div class="video-border"></div>
 
     <!-- Интерфейс портала -->
     <div class="menu-box">
         <h1>Legacy IPTV Портал</h1>
-        <div class="info">Навигация: Стрелки ↑ и ↓<br>Выбор: OK | Стоп: BACK / EXIT<br>Громкость: Vol+ / Vol-</div>
+        <div class="info">Навигация: Стрелки ↑ и ↓ или кнопки пульта<br>Выбор: Enter / OK | Стоп: Backspace / EXIT<br>Громкость: Клавиши + и - (Numpad)</div>
         
         <ul id="channelList">
             <!-- Каналы добавятся через JS -->
@@ -123,8 +129,8 @@
     <!-- Статус бар -->
     <div id="status-bar">Статус: Готов к работе</div>
 
-    <!-- Индикатор громкости -->
-    <div id="volume-bar-container" id="volumeContainer">
+    <!-- Индикатор громкости (ID исправлен) -->
+    <div id="volume-bar-container">
         <div class="volume-label" id="volumeText">ЗВУК: 10%</div>
         <div class="volume-track">
             <div class="volume-fill" id="volumeFill"></div>
@@ -134,12 +140,13 @@
     <script>
         var channels = [
             { name: "Тестовое видео (M2V)", url: "http://www.mediacollege.com/downloads/video/timecode/tc_25fps_20mins.m2v" },
-            { name: "Тестовый стрим (HLS)", url: "http://138.3.253.85:8000/stream/74.ts" }
+            { name: "Тестовый стрим (HLS)", url: "https://ur5lgq-iptv-transcoder.hf.space/low.m3u8" }
         ];
 
         var currentIndex = 0;
         var isStb = (typeof gSTB !== 'undefined');
         var volumeTimer = null;
+        var currentVolume = 10; // Глобальная переменная для хранения громкости на ПК и MAG
 
         window.onload = function() {
             if (isStb) {
@@ -148,35 +155,24 @@
                 gSTB.SetVideoControl(1);   
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);         
-                
-                // Плеер уменьшен на 10%: Ширина 1152 (1280-128), Высота 648 (720-72)
-                // Смещаем на 64px вправо и на 36px вниз, чтобы центрировать окно
                 gSTB.SetViewport(1152, 648, 64, 36); 
-                
-                // Изначально устанавливаем громкость на 10
-                gSTB.SetVolume(10); 
-                updateVolumeUI(10);
+                gSTB.SetVolume(currentVolume); 
             } else {
-                showStatus("Запущено в обычном браузере (gSTB недоступен)");
-                updateVolumeUI(10); // Отобразить 10% в эмуляции
+                showStatus("Запущено на ПК (gSTB эмуляция)");
             }
 
             renderList();
             updateSelection();
+            updateVolumeUI(currentVolume);
         };
 
+        // Модель событий MAG
         window.stbEvent = {
             onEvent: function ( event ) {
                 switch ( Number(event) ) {
-                    case 2:
-                        showStatus("Статус: Получены аудио/видео дорожки.");
-                        break;
-                    case 4:
-                        showStatus("Статус: Воспроизведение запущено");
-                        break;
-                    case 5:
-                        showStatus("Ошибка: Не удалось открыть поток");
-                        break;
+                    case 2: showStatus("Статус: Получены аудио/видео дорожки."); break;
+                    case 4: showStatus("Статус: Воспроизведение запущено"); break;
+                    case 5: showStatus("Ошибка: Не удалось открыть поток"); break;
                 }
             }
         };
@@ -200,15 +196,13 @@
             document.getElementById("status-bar").innerText = text;
         }
 
-        // Обновление и показ графического индикатора громкости
         function updateVolumeUI(vol) {
             document.getElementById("volumeText").innerText = "ЗВУК: " + vol + "%";
             document.getElementById("volumeFill").style.width = vol + "%";
             
             var container = document.getElementById("volume-bar-container");
-            container.style.opacity = "1"; // Показываем шкалу
+            container.style.opacity = "1"; 
             
-            // Сбрасываем старый таймер скрытия и заводим новый на 2 секунды
             clearTimeout(volumeTimer);
             volumeTimer = setTimeout(function() {
                 container.style.opacity = "0";
@@ -217,11 +211,15 @@
 
         window.addEventListener('keydown', function ( event ) {
             var keyCode = event.keyCode || event.which;
-            var volume = isStb ? gSTB.GetVolume() : 10; // Если не на STB, берем за основу 10
+
+            // Если мы на приставке, синхронизируем актуальную громкость из gSTB
+            if (isStb) {
+                currentVolume = gSTB.GetVolume();
+            }
 
             switch ( keyCode ) {
                 case 38: // Стрелка ВВЕРХ
-                case 33: // CH+
+                case 33: // CH+ на MAG
                     if (currentIndex > 0) {
                         currentIndex--;
                         updateSelection();
@@ -230,7 +228,7 @@
                     break;
 
                 case 40: // Стрелка ВНИЗ
-                case 34: // CH-
+                case 34: // CH- на MAG
                     if (currentIndex < channels.length - 1) {
                         currentIndex++;
                         updateSelection();
@@ -238,38 +236,40 @@
                     event.preventDefault();
                     break;
 
-                case 13: // OK
-                    showStatus("Статус: Подключение к потоку...");
+                case 13: // Enter / OK
+                    showStatus("Эмуляция: Воспроизведение " + channels[currentIndex].name);
                     if (isStb) {
                         gSTB.Play('auto ' + channels[currentIndex].url);
-                    } else {
-                        showStatus("Эмуляция: Воспроизведение " + channels[currentIndex].name);
                     }
                     event.preventDefault();
                     break;
 
-                case 107: // Кнопка Громкость ВВЕРХ (Vol +)
-                case 449: 
-                    if (volume < 100) {
-                        volume += 2; // Шаг изменения громкости 2%
-                        if (volume > 100) volume = 100;
-                        if (isStb) gSTB.SetVolume(volume);
-                        updateVolumeUI(volume);
+                case 39:  // Стрелка ВПРАВО (ПК и MAG)
+                case 107: // Плюс на Numpad (ПК)
+                case 187: // Обычный Плюс/Равно (ПК)
+                case 449: // Vol+ на MAG
+                    if (currentVolume < 100) {
+                        currentVolume += 2;
+                        if (currentVolume > 100) currentVolume = 100;
+                        if (isStb) gSTB.SetVolume(currentVolume);
+                        updateVolumeUI(currentVolume);
                     }
                     break;
 
-                case 109: // Кнопка Громкость ВНИЗ (Vol -)
-                case 450: 
-                    if (volume > 0) {
-                        volume -= 2; // Шаг изменения громкости 2%
-                        if (volume < 0) volume = 0;
-                        if (isStb) gSTB.SetVolume(volume);
-                        updateVolumeUI(volume);
+                case 37:  // Стрелка ВЛЕВО (ПК и MAG)
+                case 109: // Минус на Numpad (ПК)
+                case 189: // Обычный Минус (ПК)
+                case 450: // Vol- на MAG
+                    if (currentVolume > 0) {
+                        currentVolume -= 2;
+                        if (currentVolume < 0) currentVolume = 0;
+                        if (isStb) gSTB.SetVolume(currentVolume);
+                        updateVolumeUI(currentVolume);
                     }
                     break;
 
-                case 27: // EXIT
-                case 8:  // BACK
+                case 27: // ESC / EXIT
+                case 8:  // Backspace (ПК) / BACK (MAG)
                     if (isStb) gSTB.Stop();
                     showStatus("Статус: Воспроизведение остановлено");
                     event.preventDefault();
