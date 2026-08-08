@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <title>MAG322 Custom Portal</title>
     <style>
-        body {
-            background-color: #1a1a1a; /* На ПК делаем темный фон, чтобы видеть разметку */
+        /* Базовые стили для HD разрешения (как требует MAG) */
+        html, body {
+            background-color: #1a1a1a;
             color: #ffffff;
             font-family: Arial, sans-serif;
             margin: 0;
@@ -21,6 +22,17 @@
             body { background-color: transparent; }
         }
 
+        /* АВТО-МАСШТАБИРОВАНИЕ ДЛЯ НЕТБУКА (1024x600) и меньших экранов */
+        @media screen and (max-width: 1024px) {
+            html, body {
+                /* Сжимаем интерфейс пропорционально, чтобы он влез в 600px по высоте */
+                transform: scale(0.8333); 
+                transform-origin: top left;
+                width: 1280px;
+                height: 720px;
+            }
+        }
+
         /* Визуальный контур уменьшенного плеера */
         .video-border {
             position: absolute;
@@ -31,7 +43,7 @@
             border: 2px solid rgba(255, 255, 255, 0.2);
             box-sizing: border-box;
             pointer-events: none;
-            background: #000000; /* Черная подложка имитирует экран плеера на ПК */
+            background: #000000; 
             z-index: 1;
         }
 
@@ -119,7 +131,7 @@
     <!-- Интерфейс портала -->
     <div class="menu-box">
         <h1>Legacy IPTV Портал</h1>
-        <div class="info">Навигация: Стрелки ↑ и ↓ или кнопки пульта<br>Выбор: Enter / OK | Стоп: Backspace / EXIT<br>Громкость: Клавиши + и - (Numpad)</div>
+        <div class="info">Навигация: Стрелки ↑ и ↓<br>Выбор: Enter / OK | Стоп: Backspace / EXIT<br>Громкость: Стрелки ← и →</div>
         
         <ul id="channelList">
             <!-- Каналы добавятся через JS -->
@@ -129,7 +141,7 @@
     <!-- Статус бар -->
     <div id="status-bar">Статус: Готов к работе</div>
 
-    <!-- Индикатор громкости (ID исправлен) -->
+    <!-- Индикатор громкости -->
     <div id="volume-bar-container">
         <div class="volume-label" id="volumeText">ЗВУК: 10%</div>
         <div class="volume-track">
@@ -146,7 +158,7 @@
         var currentIndex = 0;
         var isStb = (typeof gSTB !== 'undefined');
         var volumeTimer = null;
-        var currentVolume = 10; // Глобальная переменная для хранения громкости на ПК и MAG
+        var currentVolume = 10; 
 
         window.onload = function() {
             if (isStb) {
@@ -166,7 +178,6 @@
             updateVolumeUI(currentVolume);
         };
 
-        // Модель событий MAG
         window.stbEvent = {
             onEvent: function ( event ) {
                 switch ( Number(event) ) {
@@ -212,7 +223,6 @@
         window.addEventListener('keydown', function ( event ) {
             var keyCode = event.keyCode || event.which;
 
-            // Если мы на приставке, синхронизируем актуальную громкость из gSTB
             if (isStb) {
                 currentVolume = gSTB.GetVolume();
             }
@@ -244,9 +254,9 @@
                     event.preventDefault();
                     break;
 
-                case 39:  // Стрелка ВПРАВО (ПК и MAG)
-                case 107: // Плюс на Numpad (ПК)
-                case 187: // Обычный Плюс/Равно (ПК)
+                case 39:  // Стрелка ВПРАВО
+                case 107: // Плюс на Numpad
+                case 187: // Обычный Плюс
                 case 449: // Vol+ на MAG
                     if (currentVolume < 100) {
                         currentVolume += 2;
@@ -254,11 +264,12 @@
                         if (isStb) gSTB.SetVolume(currentVolume);
                         updateVolumeUI(currentVolume);
                     }
+                    event.preventDefault();
                     break;
 
-                case 37:  // Стрелка ВЛЕВО (ПК и MAG)
-                case 109: // Минус на Numpad (ПК)
-                case 189: // Обычный Минус (ПК)
+                case 37:  // Стрелка ВЛЕВО
+                case 109: // Минус на Numpad
+                case 189: // Обычный Минус
                 case 450: // Vol- на MAG
                     if (currentVolume > 0) {
                         currentVolume -= 2;
@@ -266,6 +277,7 @@
                         if (isStb) gSTB.SetVolume(currentVolume);
                         updateVolumeUI(currentVolume);
                     }
+                    event.preventDefault();
                     break;
 
                 case 27: // ESC / EXIT
