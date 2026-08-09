@@ -6,7 +6,7 @@
     <style>
         /* Базовые стили для HD разрешения приставки MAG */
         html, body {
-            background: transparent !important; /* Полная прозрачность для MAG */
+            background: transparent !important; 
             color: #ffffff;
             font-family: Arial, sans-serif;
             margin: 0;
@@ -57,6 +57,7 @@
             border-radius: 8px;
             box-shadow: 0 0 20px rgba(0,0,0,0.8);
             z-index: 10;
+            transition: opacity 0.3s ease; 
         }
         h1 { font-size: 22px; margin-top: 0; color: #ffaa00; }
         .info { font-size: 13px; color: #aaa; margin-bottom: 15px; line-height: 1.4; }
@@ -84,6 +85,7 @@
             border-radius: 5px;
             font-size: 14px;
             z-index: 10;
+            transition: opacity 0.3s ease; 
         }
 
         /* Графический индикатор громкости (Volume Bar) */
@@ -128,7 +130,7 @@
     <div class="video-border"></div>
 
     <!-- Интерфейс портала -->
-    <div class="menu-box">
+    <div class="menu-box" id="mainMenu">
         <h1>Legacy IPTV Плеер</h1>
         <div class="info">Навигация: Стрелки ↑ и ↓<br>Выбор: Enter / OK | Стоп: Backspace / EXIT<br>Громкость: Стрелки ← и →</div>
         
@@ -159,12 +161,14 @@
         var currentIndex = 0;
         var isStb = (typeof gSTB !== 'undefined');
         var volumeTimer = null;
+        var hideUiTimer = null; 
         var currentVolume = 10; 
+        var isPlaying = false; // Флаг: активно ли сейчас видео
 
         window.onload = function() {
             if (isStb) {
                 gSTB.InitPlayer();
-                gSTB.SetAspect(0x00); // 0x00 — принудительно растянуть видео        
+                gSTB.SetAspect(0x00);        
                 gSTB.SetVideoControl(1);   
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);         
@@ -173,23 +177,19 @@
                 var w, h, x, y;
 
                 if (screenWidth <= 1024) {
-                    // Координаты для нетбука 1024x600
                     w = Math.round(1152 * 0.8); 
                     h = Math.round(648 * 0.8);  
                     x = Math.round(64 * 0.8);   
                     y = Math.round(36 * 0.8);   
                 } else {
-                    // Стандартные координаты для HD телевизора
                     w = 1152;
                     h = 648;
                     x = 64;
                     y = 36;
                 }
 
-                // Устанавливаем прямоугольник вывода
                 gSTB.SetViewport(w, h, x, y); 
 
-                // ТОЧНОЕ ИСПРАВЛЕНИЕ: Активируем режим окна (state=0), масштаб 1:1 (256) и передаем отступы
                 if (typeof gSTB.SetPIG === 'function') {
                     gSTB.SetPIG(0, 256, x, y);
                 }
@@ -207,9 +207,19 @@
         window.stbEvent = {
             onEvent: function ( event ) {
                 switch ( Number(event) ) {
-                    case 2: showStatus("Статус: Получены аудио/видео дорожки."); break;
-                    case 4: showStatus("Статус: Воспроизведение запущено"); break;
-                    case 5: showStatus("Ошибка: Не удалось открыть поток"); break;
+                    case 2: 
+                        showStatus("Статус: Получены аудио/видео дорожки."); 
+                        break;
+                    case 4: 
+                        showStatus("Статус: Воспроизведение запущено"); 
+                        isPlaying = true;
+                        startHideUiTimer(1000); // При старте скрываем быстро через 1 секунду
+                        break;
+                    case 5: 
+                        showStatus("Ошибка: Не удалось открыть поток"); 
+                        isPlaying = false;
+                        toggleInterface(true); 
+                        break;
                 }
             }
         };
@@ -233,6 +243,29 @@
             document.getElementById("status-bar").innerText = text;
         }
 
+        function toggleInterface(show) {
+            var menu = document.getElementById("mainMenu");
+            var statusBar = document.getElementById("status-bar");
+            
+            if (show) {
+                menu.style.display = "block";
+                statusBar.style.display = "block";
+            } else {
+                menu.style.display = "none";
+                statusBar.style.display = "none";
+            }
+        }
+
+        // Запуск и обновление таймера автоскрытия
+        function startHideUiTimer(delay) {
+            clearTimeout(hideUiTimer);
+            if (!isPlaying) return; // Если видео остановлено, таймер не нужен
+            
+            hideUiTimer = setTimeout(function() {
+                toggleInterface(false);
+            }, delay);
+        }
+
         function updateVolumeUI(vol) {
             document.getElementById("volumeText").innerText = "ЗВУК: " + vol + "%";
             document.getElementById("volumeFill").style.width = vol + "%";
@@ -251,6 +284,24 @@
 
             if (isStb) {
                 currentVolume = gSTB.GetVolume();
+            }
+
+            // УМНОЕ ПОВЕДЕНИЕ: Если видео играет, а меню скрыто — показываем его при нажатии любой кнопки
+            var menu = document.getElementById("mainMenu");
+            if (isPlaying && menu.style.display === "none") {
+                toggleInterface(true);
+                startHideUiTimer(3000); // Включаем таймер скрытия на 3 секунды после этого клика
+                
+                // Предотвращаем срабатывание действия кнопки ОК и EXIT, чтобы не переключить/не остановить видео первым же кликом
+                if (keyCode === 13 || keyCode === 27 || keyCode === 8) {
+                    event.preventDefault();
+                    return;
+                }
+            }
+
+            // Если меню открыто и видео идет, каждое нажатие любой кнопки продлевает отображение интерфейса на 3 секунды
+            if (isPlaying && menu.style.display !== "none") {
+                startHideUiTimer(3000); 
             }
 
             switch ( keyCode ) {
@@ -277,7 +328,10 @@
                     if (isStb) {
                         gSTB.Play('auto ' + channels[currentIndex].url);
                     } else {
+                        // Эмуляция старта на ПК
+                        isPlaying = true;
                         showStatus("Эмуляция: Воспроизведение " + channels[currentIndex].name);
+                        startHideUiTimer(1000);
                     }
                     event.preventDefault();
                     break;
@@ -308,13 +362,18 @@
                     event.preventDefault();
                     break;
 
-                case 27: // ESC / EXIT
-                case 8:  // Backspace (ПК) / BACK (MAG)
+                case 27: 
+                case 8:  
                     if (isStb) gSTB.Stop();
-                    showStatus("Статус: Воспроизведение остановлено");
+                    isPlaying = false; // Видео остановлено пользователем
+                    clearTimeout(hideUiTimer); 
+                    showStatus("Статус: остановлено");
+                    toggleInterface(true); 
                     event.preventDefault();
                     break;
             }
         });
     </script>
 </body>
+</html>
+                
