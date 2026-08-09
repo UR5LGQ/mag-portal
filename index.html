@@ -6,7 +6,7 @@
     <style>
         /* Базовые стили для HD разрешения приставки MAG */
         html, body {
-            background: transparent !important; /* Полная прозрачность: видеослой находится ПОД этим слоем */
+            background: transparent !important; /* Полная прозрачность для MAG */
             color: #ffffff;
             font-family: Arial, sans-serif;
             margin: 0;
@@ -17,7 +17,7 @@
             position: relative;
         }
         
-        /* Только на ПК (если экран больше HD) включаем темную подложку для удобства отладки */
+        /* На ПК включаем темную подложку для удобства отладки */
         @media screen and (min-width: 1281px) {
             html { background-color: #1a1a1a !important; }
         }
@@ -25,7 +25,7 @@
         /* АВТО-МАСШТАБИРОВАНИЕ ДЛЯ НЕТБУКА (1024x600) */
         @media screen and (max-width: 1024px) {
             html, body {
-                transform: scale(0.8); /* Уменьшаем до 80%, чтобы идеально вписать 720p в 600px высоты нетбука */
+                transform: scale(0.8); 
                 transform-origin: top left;
                 width: 1280px;
                 height: 720px;
@@ -39,10 +39,10 @@
             height: 648px;  
             left: 64px;     
             top: 36px;      
-            border: 2px solid rgba(255, 255, 255, 0.3); /* Тонкая полупрозрачная рамка */
+            border: 2px solid rgba(255, 255, 255, 0.3); 
             box-sizing: border-box;
             pointer-events: none;
-            background: transparent !important; /* КРИТИЧНО: Никакого черного фона, иначе закроет видео! */
+            background: transparent !important; 
             z-index: 1;
         }
 
@@ -124,12 +124,12 @@
 </head>
 <body>
 
-    <!-- Только рамка-ориентир, фон полностью прозрачный -->
+    <!-- Тонкая рамка-ориентир -->
     <div class="video-border"></div>
 
     <!-- Интерфейс портала -->
     <div class="menu-box">
-        <h1>Legacy IPTV Портал</h1>
+        <h1>Legacy IPTV Плеер</h1>
         <div class="info">Навигация: Стрелки ↑ и ↓<br>Выбор: Enter / OK | Стоп: Backspace / EXIT<br>Громкость: Стрелки ← и →</div>
         
         <ul id="channelList">
@@ -149,9 +149,12 @@
     </div>
 
     <script>
+        // ИСПРАВЛЕННЫЙ СПИСОК ТЕСТОВЫХ АДРЕСОВ (Убрали m2v, добавили стабильные HD потоки)
         var channels = [
-            { name: "Тестовое видео (M2V)", url: "http://www.mediacollege.com/downloads/video/timecode/tc_25fps_20mins.m2v" },
-            { name: "Тестовый стрим (HLS)", url: "https://ur5lgq-iptv-transcoder.hf.space/low.m3u8" }
+            { name: "Стрим: Мой Транскодер (HLS)", url: "https://hf.space" },
+            { name: "Тест HD: Tears of Steel (HLS)", url: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8" },
+            { name: "Тест HD: Big Buck Bunny (MP4)", url: "http://googleapis.com" },
+            { name: "Тест SD: BipBop (HLS Adaptive)", url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8" }
         ];
 
         var currentIndex = 0;
@@ -167,19 +170,20 @@
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);         
                 
-                // РАСЧЕТ АППАРТНЫХ КООРДИНАТ С УЧЕТОМ ЭКРАНА УСТРОЙСТВА
-                var screenWidth = window.innerWidth;
+                // ПРИНУДИТЕЛЬНОЕ ЗАТЯГИВАНИЕ ВИДЕО ПОД РАЗМЕР ОКНА (Убирает четверть экрана)
+                if (typeof gSTB.SetDisplayMode === 'function') {
+                    gSTB.SetDisplayMode(1); // 1 = Режим масштабирования "Fit" (растянуть под Viewport)
+                }
                 
+                // Расчет аппаратных координат
+                var screenWidth = window.innerWidth;
                 if (screenWidth <= 1024) {
-                    // Если запущено на нетбуке 1024x600 (коэффициент масштабирования CSS равен 0.8)
-                    // Умножаем HD-координаты (1152, 648, 64, 36) на 0.8:
-                    var w = Math.round(1152 * 0.8); // 922
-                    var h = Math.round(648 * 0.8);  // 518
-                    var x = Math.round(64 * 0.8);   // 51
-                    var y = Math.round(36 * 0.8);   // 29
+                    var w = Math.round(1152 * 0.8); 
+                    var h = Math.round(648 * 0.8);  
+                    var x = Math.round(64 * 0.8);   
+                    var y = Math.round(36 * 0.8);   
                     gSTB.SetViewport(w, h, x, y); 
                 } else {
-                    // Стандартный полноценный HD-телевизор (1280x720)
                     gSTB.SetViewport(1152, 648, 64, 36); 
                 }
                 
@@ -262,7 +266,7 @@
                     break;
 
                 case 13: 
-                    showStatus("Отправка потока в gSTB...");
+                    showStatus("Запуск потока в gSTB...");
                     if (isStb) {
                         gSTB.Play('auto ' + channels[currentIndex].url);
                     } else {
