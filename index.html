@@ -149,12 +149,12 @@
     </div>
 
     <script>
-        // ИСПРАВЛЕННЫЙ СПИСОК ТЕСТОВЫХ АДРЕСОВ (Убрали m2v, добавили стабильные HD потоки)
         var channels = [
-            { name: "Тестовый стрим Oracle", url: "http://138.3.253.85:8000/stream/74.ts" },
-            { name: "Стрим: Мой Транскодер (HLS)", url: "https://ur5lgq-iptv-transcoder.hf.space/low.m3u8" },
-            { name: "Тест HD: Tears of Steel (HLS)", url: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8" },
-            { name: "Тест SD: BipBop (HLS Adaptive)", url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8" }
+            { name: "Стрим: Мой Транскодер (HLS)", url: "https://hf.space" },
+            { name: "Тест HD: Tears of Steel (HLS)", url: "https://unified-streaming.com" },
+            { name: "Тест HD: Big Buck Bunny (MP4)", url: "http://googleapis.com" },
+            { name: "Тест HD: Big Buck Bunny (HLS)", url: "https://mux.dev" },
+            { name: "Тест SD: BipBop (HLS Adaptive)", url: "https://apple.com" }
         ];
 
         var currentIndex = 0;
@@ -165,15 +165,13 @@
         window.onload = function() {
             if (isStb) {
                 gSTB.InitPlayer();
-                gSTB.SetAspect(0x10);       
+                
+                // ТОЧНОЕ ИСПРАВЛЕНИЕ: Выставляем 0x00 (aspH=0, aspL=0) — принудительно растянуть на всю рамку
+                gSTB.SetAspect(0x00);       
+                
                 gSTB.SetVideoControl(1);   
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);         
-                
-                // ПРИНУДИТЕЛЬНОЕ ЗАТЯГИВАНИЕ ВИДЕО ПОД РАЗМЕР ОКНА (Убирает четверть экрана)
-                if (typeof gSTB.SetDisplayMode === 'function') {
-                    gSTB.SetDisplayMode(1); // 1 = Режим масштабирования "Fit" (растянуть под Viewport)
-                }
                 
                 // Расчет аппаратных координат
                 var screenWidth = window.innerWidth;
