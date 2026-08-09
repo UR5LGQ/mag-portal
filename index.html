@@ -6,7 +6,7 @@
     <style>
         /* Базовые стили для HD разрешения (как требует MAG) */
         html, body {
-            background-color: #1a1a1a;
+            background-color: transparent !important; /* На MAG строгая прозрачность, чтобы видеть видео */
             color: #ffffff;
             font-family: Arial, sans-serif;
             margin: 0;
@@ -17,15 +17,14 @@
             position: relative;
         }
         
-        /* На приставке MAG делаем фон прозрачным поверх видео */
-        @media screen and (max-width: 1280px) {
-            body { background-color: transparent; }
+        /* Стили исключительно для ПК / Нетбука */
+        @media screen and (min-width: 1281px) {
+            html, body { background-color: #1a1a1a !important; }
         }
 
-        /* АВТО-МАСШТАБИРОВАНИЕ ДЛЯ НЕТБУКА (1024x600) и меньших экранов */
+        /* АВТО-МАСШТАБИРОВАНИЕ ДЛЯ НЕТБУКА (1024x600) */
         @media screen and (max-width: 1024px) {
             html, body {
-                /* Сжимаем интерфейс пропорционально, чтобы он влез в 600px по высоте */
                 transform: scale(0.8333); 
                 transform-origin: top left;
                 width: 1280px;
@@ -43,8 +42,13 @@
             border: 2px solid rgba(255, 255, 255, 0.2);
             box-sizing: border-box;
             pointer-events: none;
-            background: #000000; 
+            background: transparent; /* На MAG здесь должен быть только прозрачный фон! */
             z-index: 1;
+        }
+
+        /* На ПК заливаем подложку плеера черным, чтобы имитировать экран */
+        @media screen and (min-width: 1025px) {
+            .video-border { background: #000000; }
         }
 
         /* Полупрозрачное меню слева */
@@ -125,7 +129,7 @@
 </head>
 <body>
 
-    <!-- Имитация экрана плеера -->
+    <!-- Имитация экрана плеера (Прозрачна на MAG, черная на ПК) -->
     <div class="video-border"></div>
 
     <!-- Интерфейс портала -->
@@ -167,6 +171,8 @@
                 gSTB.SetVideoControl(1);   
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);         
+                
+                // Передаем точные HD-координаты уменьшенного на 10% окна
                 gSTB.SetViewport(1152, 648, 64, 36); 
                 gSTB.SetVolume(currentVolume); 
             } else {
@@ -290,4 +296,3 @@
         });
     </script>
 </body>
-</html>
