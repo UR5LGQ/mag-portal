@@ -164,24 +164,34 @@
         window.onload = function() {
             if (isStb) {
                 gSTB.InitPlayer();
-                
-                // ТОЧНОЕ ИСПРАВЛЕНИЕ: Выставляем 0x00 (aspH=0, aspL=0) — принудительно растянуть на всю рамку
-                gSTB.SetAspect(0x00);       
-                
+                gSTB.SetAspect(0x00); // 0x00 — принудительно растянуть видео        
                 gSTB.SetVideoControl(1);   
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);         
                 
-                // Расчет аппаратных координат
                 var screenWidth = window.innerWidth;
+                var w, h, x, y;
+
                 if (screenWidth <= 1024) {
-                    var w = Math.round(1152 * 0.8); 
-                    var h = Math.round(648 * 0.8);  
-                    var x = Math.round(64 * 0.8);   
-                    var y = Math.round(36 * 0.8);   
-                    gSTB.SetViewport(w, h, x, y); 
+                    // Координаты для нетбука 1024x600
+                    w = Math.round(1152 * 0.8); 
+                    h = Math.round(648 * 0.8);  
+                    x = Math.round(64 * 0.8);   
+                    y = Math.round(36 * 0.8);   
                 } else {
-                    gSTB.SetViewport(1152, 648, 64, 36); 
+                    // Стандартные координаты для HD телевизора
+                    w = 1152;
+                    h = 648;
+                    x = 64;
+                    y = 36;
+                }
+
+                // Устанавливаем прямоугольник вывода
+                gSTB.SetViewport(w, h, x, y); 
+
+                // ТОЧНОЕ ИСПРАВЛЕНИЕ: Активируем режим окна (state=0), масштаб 1:1 (256) и передаем отступы
+                if (typeof gSTB.SetPIG === 'function') {
+                    gSTB.SetPIG(0, 256, x, y);
                 }
                 
                 gSTB.SetVolume(currentVolume); 
