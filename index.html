@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <title>MAG322 Custom Portal</title>
     <style>
-        /* Базовые стили для HD разрешения (как требует MAG) */
+        /* Базовые стили для HD разрешения приставки MAG */
         html, body {
-            background-color: transparent !important; /* На MAG строгая прозрачность, чтобы видеть видео */
+            background: transparent !important; /* Полная прозрачность: видеослой находится ПОД этим слоем */
             color: #ffffff;
             font-family: Arial, sans-serif;
             margin: 0;
@@ -17,15 +17,15 @@
             position: relative;
         }
         
-        /* Стили исключительно для ПК / Нетбука */
+        /* Только на ПК (если экран больше HD) включаем темную подложку для удобства отладки */
         @media screen and (min-width: 1281px) {
-            html, body { background-color: #1a1a1a !important; }
+            html { background-color: #1a1a1a !important; }
         }
 
         /* АВТО-МАСШТАБИРОВАНИЕ ДЛЯ НЕТБУКА (1024x600) */
         @media screen and (max-width: 1024px) {
             html, body {
-                transform: scale(0.8333); 
+                transform: scale(0.8); /* Уменьшаем до 80%, чтобы идеально вписать 720p в 600px высоты нетбука */
                 transform-origin: top left;
                 width: 1280px;
                 height: 720px;
@@ -39,16 +39,11 @@
             height: 648px;  
             left: 64px;     
             top: 36px;      
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3); /* Тонкая полупрозрачная рамка */
             box-sizing: border-box;
             pointer-events: none;
-            background: transparent; /* На MAG здесь должен быть только прозрачный фон! */
+            background: transparent !important; /* КРИТИЧНО: Никакого черного фона, иначе закроет видео! */
             z-index: 1;
-        }
-
-        /* На ПК заливаем подложку плеера черным, чтобы имитировать экран */
-        @media screen and (min-width: 1025px) {
-            .video-border { background: #000000; }
         }
 
         /* Полупрозрачное меню слева */
@@ -56,7 +51,7 @@
             position: absolute;
             top: 50px;
             left: 80px;
-            background: rgba(20, 20, 20, 0.9); 
+            background: rgba(20, 20, 20, 0.92); 
             padding: 20px;
             width: 380px;
             border-radius: 8px;
@@ -84,7 +79,7 @@
             position: absolute;
             bottom: 50px;
             left: 80px;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             padding: 10px 20px;
             border-radius: 5px;
             font-size: 14px;
@@ -129,7 +124,7 @@
 </head>
 <body>
 
-    <!-- Имитация экрана плеера (Прозрачна на MAG, черная на ПК) -->
+    <!-- Только рамка-ориентир, фон полностью прозрачный -->
     <div class="video-border"></div>
 
     <!-- Интерфейс портала -->
@@ -155,8 +150,8 @@
 
     <script>
         var channels = [
-            { name: "Тестовое видео (M2V)", url: "http://www.mediacollege.com/downloads/video/timecode/tc_25fps_20mins.m2v" },
-            { name: "Тестовый стрим (HLS)", url: "https://ur5lgq-iptv-transcoder.hf.space/low.m3u8" }
+            { name: "Тестовое видео (M2V)", url: "http://mediacollege.com" },
+            { name: "Тестовый стрим (HLS)", url: "https://hf.space" }
         ];
 
         var currentIndex = 0;
@@ -172,8 +167,22 @@
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);         
                 
-                // Передаем точные HD-координаты уменьшенного на 10% окна
-                gSTB.SetViewport(640, 360, 64, 36); 
+                // РАСЧЕТ АППАРТНЫХ КООРДИНАТ С УЧЕТОМ ЭКРАНА УСТРОЙСТВА
+                var screenWidth = window.innerWidth;
+                
+                if (screenWidth <= 1024) {
+                    // Если запущено на нетбуке 1024x600 (коэффициент масштабирования CSS равен 0.8)
+                    // Умножаем HD-координаты (1152, 648, 64, 36) на 0.8:
+                    var w = Math.round(1152 * 0.8); // 922
+                    var h = Math.round(648 * 0.8);  // 518
+                    var x = Math.round(64 * 0.8);   // 51
+                    var y = Math.round(36 * 0.8);   // 29
+                    gSTB.SetViewport(w, h, x, y); 
+                } else {
+                    // Стандартный полноценный HD-телевизор (1280x720)
+                    gSTB.SetViewport(1152, 648, 64, 36); 
+                }
+                
                 gSTB.SetVolume(currentVolume); 
             } else {
                 showStatus("Запущено на ПК (gSTB эмуляция)");
@@ -234,8 +243,8 @@
             }
 
             switch ( keyCode ) {
-                case 38: // Стрелка ВВЕРХ
-                case 33: // CH+ на MAG
+                case 38: 
+                case 33: 
                     if (currentIndex > 0) {
                         currentIndex--;
                         updateSelection();
@@ -243,8 +252,8 @@
                     event.preventDefault();
                     break;
 
-                case 40: // Стрелка ВНИЗ
-                case 34: // CH- на MAG
+                case 40: 
+                case 34: 
                     if (currentIndex < channels.length - 1) {
                         currentIndex++;
                         updateSelection();
@@ -252,18 +261,20 @@
                     event.preventDefault();
                     break;
 
-                case 13: // Enter / OK
-                    showStatus("Эмуляция: Воспроизведение " + channels[currentIndex].name);
+                case 13: 
+                    showStatus("Отправка потока в gSTB...");
                     if (isStb) {
                         gSTB.Play('auto ' + channels[currentIndex].url);
+                    } else {
+                        showStatus("Эмуляция: Воспроизведение " + channels[currentIndex].name);
                     }
                     event.preventDefault();
                     break;
 
-                case 39:  // Стрелка ВПРАВО
-                case 107: // Плюс на Numpad
-                case 187: // Обычный Плюс
-                case 449: // Vol+ на MAG
+                case 39:  
+                case 107: 
+                case 187: 
+                case 449: 
                     if (currentVolume < 100) {
                         currentVolume += 2;
                         if (currentVolume > 100) currentVolume = 100;
@@ -273,10 +284,10 @@
                     event.preventDefault();
                     break;
 
-                case 37:  // Стрелка ВЛЕВО
-                case 109: // Минус на Numpad
-                case 189: // Обычный Минус
-                case 450: // Vol- на MAG
+                case 37:  
+                case 109: 
+                case 189: 
+                case 450: 
                     if (currentVolume > 0) {
                         currentVolume -= 2;
                         if (currentVolume < 0) currentVolume = 0;
