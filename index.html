@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>MAG322 Hardware Reset Mode</title>
+    <title>MAG322 Fullscreen Player Fixed Audio</title>
     <style>
         html, body {
             background: transparent !important;
@@ -23,27 +23,38 @@
 
         window.onload = function() {
             if (isStb) {
-                // 1. Аппаратный сброс видеодекодера Broadcom
+                // Аппаратный сброс видеодекодера Broadcom
                 if (typeof gSTB.SetMode === 'function') {
-                    gSTB.SetMode(0); // Принудительный сброс видеорежима в стандарт оператора
+                    gSTB.SetMode(0); 
                 }
                 
                 gSTB.InitPlayer();
                 
-                // Пробуем жесткое аппаратное разделение слоев
+                // Аппаратное разделение слоев
                 gSTB.SetVideoControl(0);   
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);
                 
-                // Принудительно выставляем 0x00 — режим "растянуть на весь экран без сохранения пропорций"
+                // Режим "растянуть на весь экран"
                 gSTB.SetAspect(0x00); 
                 
-                // Включаем Full HD координаты. Если приставка выдает сигнал 1080p, 
-                // старые координаты 1280x720 как раз занимали ровно треть экрана!
+                // Проверенные Full HD координаты
                 gSTB.SetViewport(1920, 1080, 0, 0); 
                 
-                // Начальная громкость 15%
-                gSTB.SetVolume(15); 
+                // Установка громкости на 35%
+                gSTB.SetVolume(35); 
+                
+                // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ ЗВУКА:
+                // 1 = Режим PCM (Стерео) для HDMI. Заставляет приставку самостоятельно 
+                // декодировать аудиопоток и отдавать на ТВ уже чистый звук.
+                if (typeof gSTB.SetHDMIAudioOut === 'function') {
+                    gSTB.SetHDMIAudioOut(1); 
+                }
+                
+                // Перевод аудиосистемы в стандартный операционный режим
+                if (typeof gSTB.SetAudioOperationalMode === 'function') {
+                    gSTB.SetAudioOperationalMode(0); 
+                }
                 
                 // Запуск потока
                 gSTB.Play('auto ' + streamUrl); 
