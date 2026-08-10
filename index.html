@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>MAG322 Fullscreen Player Fixed Audio</title>
+    <title>MAG322 Fullscreen Player Audio Auto Fix</title>
     <style>
         html, body {
             background: transparent !important;
@@ -41,17 +41,13 @@
                 // Проверенные Full HD координаты
                 gSTB.SetViewport(1920, 1080, 0, 0); 
                 
-                // Установка громкости на 35%
-                gSTB.SetVolume(35); 
+                // Установка громкости на 25%
+                gSTB.SetVolume(25); 
                 
-                // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ ЗВУКА:
-                // 1 = Режим PCM (Стерео) для HDMI. Заставляет приставку самостоятельно 
-                // декодировать аудиопоток и отдавать на ТВ уже чистый звук.
+                // Стандартный аудио-режим PCM (Стерео) для HDMI
                 if (typeof gSTB.SetHDMIAudioOut === 'function') {
                     gSTB.SetHDMIAudioOut(1); 
                 }
-                
-                // Перевод аудиосистемы в стандартный операционный режим
                 if (typeof gSTB.SetAudioOperationalMode === 'function') {
                     gSTB.SetAudioOperationalMode(0); 
                 }
@@ -61,10 +57,40 @@
             }
         };
 
+        // КРИТИЧЕСКИЙ БЛОК: Модель обработки событий плеера с авто-включением звука
         window.stbEvent = {
             onEvent: function ( event ) {
-                if (Number(event) === 5 && isStb) {
-                    gSTB.Play('auto ' + streamUrl); // Перезапуск при срыве
+                if (!isStb) return;
+
+                switch ( Number(event) ) {
+                    case 2:
+                        console.log('Information on audio and video tracks received.');
+                        try {
+                            // Получаем список всех аудиодорожек, найденных в потоке .ts
+                            var audioTracks = gSTB.GetAudioPIDs(); 
+                            
+                            // Если дорожки найдены, принудительно берем самую первую рабочую
+                            if (audioTracks && audioTracks.length > 0) {
+                                // Некоторые прошивки возвращают JSON-строку, некоторые — массив объектов
+                                var firstTrack = audioTracks[0];
+                                var pid = (typeof firstTrack === 'object') ? firstTrack.pid : firstTrack;
+                                
+                                // Активируем звуковую дорожку на чипсете Broadcom
+                                gSTB.SetAudioPID(Number(pid));
+                                console.log('Successfully forced audio PID: ' + pid);
+                            }
+                        } catch (e) {
+                            console.log('Error parsing audio tracks: ' + e.message);
+                        }
+                        break;
+
+                    case 4:
+                        console.log('Playback started.');
+                        break;
+
+                    case 5:
+                        gSTB.Play('auto ' + streamUrl); // Перезапуск при срыве
+                        break;
                 }
             }
         };
