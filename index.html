@@ -168,30 +168,41 @@
         window.onload = function() {
             if (isStb) {
                 gSTB.InitPlayer();
-                gSTB.SetAspect(0x00);        
+                
+                // 1. Сначала сбрасываем видео в чистый полноэкранный режим, 
+                // чтобы декодер Broadcom правильно определил пропорции экрана 16:9
+                gSTB.SetPIG(1, 256, 0, 0); 
+                gSTB.SetAspect(0x00); // 0x00 — принудительное растягивание видео (Stretched)      
+                
                 gSTB.SetVideoControl(1);   
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);         
                 
                 var screenWidth = window.innerWidth;
-                var w, h, x, y;
+                var w, h, x, y, pigScale;
 
                 if (screenWidth <= 1024) {
-                    w = Math.round(1152 * 0.8); 
-                    h = Math.round(648 * 0.8);  
-                    x = Math.round(64 * 0.8);   
-                    y = Math.round(36 * 0.8);   
+                    // Координаты для нетбука 1024x600 (уменьшено на 20% от HD)
+                    w = Math.round(1152 * 0.8); // 922
+                    h = Math.round(648 * 0.8);  // 518
+                    x = Math.round(64 * 0.8);   // 51
+                    y = Math.round(36 * 0.8);   // 29
+                    pigScale = Math.round(256 * 0.8); // Корректируем масштаб под экран нетбука (~205)
                 } else {
+                    // Стандартные координаты для HD телевизора (уменьшено на 10% от full HD)
                     w = 1152;
                     h = 648;
                     x = 64;
                     y = 36;
+                    pigScale = 230; // 230/256 = ~0.9 (ровно 90% от экрана, чтобы видео влезло в рамку)
                 }
 
+                // 2. Задаем физические границы окна вывода
                 gSTB.SetViewport(w, h, x, y); 
 
+                // 3. Переводим в режим прямоугольника (state=0) и применяем высчитанный масштаб pigScale
                 if (typeof gSTB.SetPIG === 'function') {
-                    gSTB.SetPIG(0, 256, x, y);
+                    gSTB.SetPIG(0, pigScale, x, y);
                 }
                 
                 gSTB.SetVolume(currentVolume); 
