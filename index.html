@@ -2,124 +2,371 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>MAG322 Fullscreen Player Audio Auto Fix</title>
+    <title>MAG322 Fullscreen IPTV Playlist Portal</title>
     <style>
+        /* Строжайшая прозрачность для MAG, чтобы сквозь интерфейс было видно видео на весь экран */
         html, body {
             background: transparent !important;
             background-color: transparent !important;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
+            width: 1920px; /* Фиксируем разрешение Full HD под работающий плеер */
+            height: 1080px;
             overflow: hidden;
+            position: relative;
+        }
+        
+        /* На ПК включаем темную подложку для удобства отладки */
+        @media screen and (min-width: 1921px) {
+            html { background-color: #1a1a1a !important; }
+        }
+
+        /* АВТО-МАСШТАБИРОВАНИЕ ДЛЯ НЕТБУКА (1024x600) — сжимаем Full HD верстку */
+        @media screen and (max-width: 1024px) {
+            html, body {
+                transform: scale(0.5333); /* 1024 / 1920 = ~0.5333 */
+                transform-origin: top left;
+                width: 1920px;
+                height: 1080px;
+            }
+        }
+
+        /* Полупрозрачное меню слева */
+        .menu-box {
+            position: absolute;
+            top: 80px;
+            left: 100px;
+            background: rgba(20, 20, 20, 0.94); 
+            padding: 30px;
+            width: 500px;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.9);
+            z-index: 10;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        h1 { font-size: 28px; margin-top: 0; color: #ffaa00; text-shadow: 1px 1px 2px #000; }
+        .info { font-size: 15px; color: #aaa; margin-bottom: 20px; line-height: 1.5; }
+        
+        /* Контейнер списка с прокруткой */
+        .list-container {
+            max-height: 600px;
+            overflow-y: hidden; /* Скрываем полосы прокрутки, управляем только кнопками пульта */
+        }
+        ul { list-style: none; padding: 0; margin: 0; }
+        li {
+            padding: 16px 20px;
+            background: #252525;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            font-size: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border: 1px solid #333;
+        }
+        /* Стиль для выделенного стрелками канала */
+        li.active {
+            background: #ffaa00;
+            color: #000000;
+            font-weight: bold;
+            border: 1px solid #ffffff;
+            box-shadow: 0 0 10px rgba(255,170,0,0.5);
+        }
+        /* Стиль для канала, который играет прямо сейчас */
+        li.playing {
+            border-left: 8px solid #00ff00;
+        }
+
+        /* Нижний статус-бар */
+        #status-bar {
+            position: absolute;
+            bottom: 80px;
+            left: 100px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px 30px;
+            border-radius: 6px;
+            font-size: 16px;
+            z-index: 10;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
 <body>
 
+    <!-- Интерфейс портала -->
+    <div class="menu-box" id="mainMenu">
+        <h1>Мой IPTV Портал</h1>
+        <div class="info">Навигация: Стрелки ↑ и ↓<br>Выбор канала: Enter / OK<br>Остановка: Backspace / EXIT<br>Громкость: Стрелки ← и →</div>
+        
+        <div class="list-container">
+            <ul id="channelList">
+                <li>Загрузка плейлиста...</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Статус бар -->
+    <div id="status-bar">Статус: Инициализация...</div>
+
     <script>
+        // ВСТАВЬТЕ СЮДА ВАШУ ССЫЛКУ НА .M3U / .M3U8 ПЛЕЙЛИСТ
+        // Сейчас по умолчанию прописан ваш рабочий тестовый канал в виде списка
+        var playlistUrl = "http://138.3.253.85:8000/playlist.m3u"; 
+        
+        // Резервный список на случай, если интернет-ссылка не загрузится
+        var channels = [
+            { name: "Поток 74.TS (Тест)", url: "http://138.3.253.85:8000/stream/74.ts" },
+            { name: "Стрим: Мой Транскодер (HLS)", url: "https://ur5lgq-iptv-transcoder.hf.space/low.m3u8" }
+        ];
+
+        var currentIndex = 0;
+        var playingIndex = -1;
         var isStb = (typeof gSTB !== 'undefined');
-        var streamUrl = 'http://138.3.253.85:8000/stream/74.ts';
+        var hideUiTimer = null; 
+        var currentVolume = 45; 
+        var isPlaying = false; 
 
         window.onload = function() {
             if (isStb) {
-                // Аппаратный сброс видеодекодера Broadcom
-                if (typeof gSTB.SetMode === 'function') {
-                    gSTB.SetMode(0); 
-                }
-                
+                if (typeof gSTB.SetMode === 'function') { gSTB.SetMode(0); }
                 gSTB.InitPlayer();
                 
-                // Аппаратное разделение слоев
-                gSTB.SetVideoControl(0);   
+                // Включаем проверенные настройки: полноэкранное видео под прозрачной графикой
+                gSTB.SetVideoControl(1); // 1 = HTML поверх видеослоя   
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);
-                
-                // Режим "растянуть на весь экран"
                 gSTB.SetAspect(0x00); 
-                
-                // Проверенные Full HD координаты
                 gSTB.SetViewport(1920, 1080, 0, 0); 
+                gSTB.SetVolume(currentVolume); 
                 
-                // Установка громкости на 65%
-                gSTB.SetVolume(65); 
-                
-                // Стандартный аудио-режим PCM (Стерео) для HDMI
-                if (typeof gSTB.SetHDMIAudioOut === 'function') {
-                    gSTB.SetHDMIAudioOut(1); 
-                }
-                if (typeof gSTB.SetAudioOperationalMode === 'function') {
-                    gSTB.SetAudioOperationalMode(0); 
-                }
-                
-                // Запуск потока
-                gSTB.Play('auto ' + streamUrl); 
+                if (typeof gSTB.SetHDMIAudioOut === 'function') { gSTB.SetHDMIAudioOut(1); }
+                if (typeof gSTB.SetAudioOperationalMode === 'function') { gSTB.SetAudioOperationalMode(0); }
+            } else {
+                showStatus("Запущено на ПК (gSTB эмуляция)");
             }
+
+            // Запускаем загрузку внешнего плейлиста
+            loadM3U(playlistUrl);
         };
 
-        // КРИТИЧЕСКИЙ БЛОК: Модель обработки событий плеера с авто-включением звука
+        // Функция загрузки и парсинга плейлиста M3U
+        function loadM3U(url) {
+            showStatus("Загрузка плейлиста...");
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", url, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        parseM3U(xhr.responseText);
+                    } else {
+                        showStatus("Ошибка загрузки M3U. Используем встроенный список.");
+                        renderList();
+                        updateSelection();
+                    }
+                }
+            };
+            try {
+                xhr.send();
+            } catch(e) {
+                showStatus("Ошибка сети CORS. Используем встроенный список.");
+                renderList();
+                updateSelection();
+            }
+        }
+
+        // Парсер текстового формата M3U
+        function parseM3U(text) {
+            var lines = text.split("\n");
+            var parsedChannels = [];
+            var currentName = "";
+
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].trim();
+                if (line.indexOf("#EXTINF:") === 0) {
+                    // Ищем название канала после последней запятой
+                    var commaIdx = line.lastIndexOf(",");
+                    if (commaIdx !== -1) {
+                        currentName = line.substring(commaIdx + 1).trim();
+                    } else {
+                        currentName = "Без названия";
+                    }
+                } else if (line.length > 0 && line.indexOf("#") !== 0) {
+                    // Если строка не пустая и не комментарий — это URL ссылка
+                    if (currentName === "") currentName = "Канал " + (parsedChannels.length + 1);
+                    parsedChannels.push({
+                        name: currentName,
+                        url: line
+                    });
+                    currentName = ""; // Сбрасываем для следующего канала
+                }
+            }
+
+            if (parsedChannels.length > 0) {
+                channels = parsedChannels;
+                showStatus("Загружено каналов: " + channels.length);
+            } else {
+                showStatus("Плейлист пуст или поврежден. Загружен резервный канал.");
+            }
+
+            renderList();
+            updateSelection();
+        }
+
         window.stbEvent = {
             onEvent: function ( event ) {
                 if (!isStb) return;
-
                 switch ( Number(event) ) {
                     case 2:
-                        console.log('Information on audio and video tracks received.');
+                        // Наш проверенный фикс звука
                         try {
-                            // Получаем список всех аудиодорожек, найденных в потоке .ts
                             var audioTracks = gSTB.GetAudioPIDs(); 
-                            
-                            // Если дорожки найдены, принудительно берем самую первую рабочую
                             if (audioTracks && audioTracks.length > 0) {
-                                // Некоторые прошивки возвращают JSON-строку, некоторые — массив объектов
                                 var firstTrack = audioTracks[0];
                                 var pid = (typeof firstTrack === 'object') ? firstTrack.pid : firstTrack;
-                                
-                                // Активируем звуковую дорожку на чипсете Broadcom
                                 gSTB.SetAudioPID(Number(pid));
-                                console.log('Successfully forced audio PID: ' + pid);
                             }
-                        } catch (e) {
-                            console.log('Error parsing audio tracks: ' + e.message);
-                        }
+                        } catch (e) {}
                         break;
-
                     case 4:
-                        console.log('Playback started.');
+                        showStatus("Статус: Воспроизведение запущено");
+                        isPlaying = true;
+                        startHideUiTimer(2000); // Скрываем графику через 2 секунды просмотра
                         break;
-
                     case 5:
-                        gSTB.Play('auto ' + streamUrl); // Перезапуск при срыве
+                        showStatus("Ошибка: Сбой потока.");
+                        isPlaying = false;
+                        toggleInterface(true);
                         break;
                 }
             }
         };
 
+        function renderList() {
+            var html = "";
+            channels.forEach(function(ch, idx) {
+                html += '<li id="ch_' + idx + '">' + ch.name + '</li>';
+            });
+            document.getElementById("channelList").innerHTML = html;
+        }
+
+        function updateSelection() {
+            channels.forEach(function(ch, idx) {
+                var el = document.getElementById("ch_" + idx);
+                if (!el) return;
+                
+                var className = "";
+                if (idx === currentIndex) className += " active";
+                if (idx === playingIndex) className += " playing";
+                el.className = className;
+            });
+
+            // Автоматическая прокрутка списка, чтобы активный канал всегда был виден
+            var activeEl = document.getElementById("ch_" + currentIndex);
+            if (activeEl) {
+                activeEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            }
+        }
+
+        function showStatus(text) {
+            document.getElementById("status-bar").innerText = text;
+        }
+
+        function toggleInterface(show) {
+            var menu = document.getElementById("mainMenu");
+            var statusBar = document.getElementById("status-bar");
+            var displayStyle = show ? "block" : "none";
+            menu.style.display = displayStyle;
+            statusBar.style.display = displayStyle;
+        }
+
+        function startHideUiTimer(delay) {
+            clearTimeout(hideUiTimer);
+            if (!isPlaying) return;
+            hideUiTimer = setTimeout(function() {
+                toggleInterface(false);
+            }, delay);
+        }
+
         window.addEventListener('keydown', function ( event ) {
             var keyCode = event.keyCode || event.which;
-            if (!isStb) return;
 
-            var volume = gSTB.GetVolume();
+            if (isStb) { currentVolume = gSTB.GetVolume(); }
+
+            var menu = document.getElementById("mainMenu");
+            // Умное появление меню при нажатии кнопок во время просмотра
+            if (isPlaying && menu.style.display === "none") {
+                toggleInterface(true);
+                startHideUiTimer(4000); // Закрыть через 4 секунды бездействия
+                if (keyCode === 13 || keyCode === 27 || keyCode === 8) {
+                    event.preventDefault();
+                    return;
+                }
+            }
+
+            if (isPlaying && menu.style.display !== "none") {
+                startHideUiTimer(4000); 
+            }
 
             switch ( keyCode ) {
-                case 13: // OK — ручной перезапуск
-                    gSTB.Play('auto ' + streamUrl);
+                case 38: // ВВЕРХ
+                    if (currentIndex > 0) { currentIndex--; updateSelection(); }
+                    event.preventDefault();
                     break;
-                case 107: // Vol+
-                case 449: 
-                    volume += 5;
-                    if (volume > 100) volume = 100;
-                    gSTB.SetVolume(volume);
+
+                case 40: // ВНИЗ
+                    if (currentIndex < channels.length - 1) { currentIndex++; updateSelection(); }
+                    event.preventDefault();
                     break;
-                case 109: // Vol-
-                case 450: 
-                    volume -= 5;
-                    if (volume < 0) volume = 0;
-                    gSTB.SetVolume(volume);
+
+                case 13: // OK / Enter
+                    playingIndex = currentIndex;
+                    updateSelection();
+                    showStatus("Запуск: " + channels[currentIndex].name);
+                    if (isStb) {
+                        gSTB.Play('auto ' + channels[currentIndex].url);
+                    } else {
+                        isPlaying = true;
+                        startHideUiTimer(2000);
+                    }
+                    event.preventDefault();
                     break;
-                case 8:  
-                case 27: 
-                    gSTB.Stop();
+
+                case 39: // ВПРАВО (Громкость +)
+                case 107:
+                case 449:
+                    if (currentVolume < 100) {
+                        currentVolume += 5;
+                        if (currentVolume > 100) currentVolume = 100;
+                        if (isStb) gSTB.SetVolume(currentVolume);
+                        showStatus("Громкость: " + currentVolume + "%");
+                    }
+                    event.preventDefault();
+                    break;
+
+                case 37: // ВЛЕВО (Громкость -)
+                case 109:
+                case 450:
+                    if (currentVolume > 0) {
+                        currentVolume -= 5;
+                        if (currentVolume < 0) currentVolume = 0;
+                        if (isStb) gSTB.SetVolume(currentVolume);
+                        showStatus("Громкость: " + currentVolume + "%");
+                    }
+                    event.preventDefault();
+                    break;
+
+                case 8:  // Backspace / BACK
+                case 27: // ESC / EXIT
+                    if (isStb) gSTB.Stop();
+                    isPlaying = false;
+                    playingIndex = -1;
+                    clearTimeout(hideUiTimer);
+                    showStatus("Статус: остановлено");
+                    toggleInterface(true);
+                    updateSelection();
+                    event.preventDefault();
                     break;
             }
         });
