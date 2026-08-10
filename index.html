@@ -166,12 +166,17 @@
         var isPlaying = false; 
 
         window.onload = function() {
-            gSTB.InitPlayer();
-            gSTB.SetAspect(0x10);
-            gSTB.SetVideoControl(0);
-            gSTB.SetVideoState(0);
-            gSTB.SetTopWin(0);
-            gSTB.SetViewport(800, 600, 0, 500);
+            if (isStb) {
+                gSTB.InitPlayer();
+                gSTB.SetAspect(0x10);
+                gSTB.SetVideoControl(0);
+                gSTB.SetVideoState(0);
+                gSTB.SetTopWin(0);
+                gSTB.SetViewport(800, 600, 0, 500);        
+                
+                gSTB.SetVolume(currentVolume); 
+            } else {
+                showStatus("Запущено на ПК (gSTB эмуляция)");
             }
 
             renderList();
