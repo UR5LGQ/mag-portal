@@ -166,21 +166,12 @@
         var isPlaying = false; 
 
         window.onload = function() {
-            if (isStb) {
-                gSTB.InitPlayer();
-                
-                // Включаем СТРОГИЙ Fullscreen на весь экран (State=1)
-                gSTB.SetPIG(1, 256, 0, 0);
-                gSTB.SetViewport(1280, 720, 0, 0); 
-                gSTB.SetAspect(0x22); // Принудительно растягивать (Stretch)      
-                
-                gSTB.SetVideoControl(1);   
-                gSTB.SetVideoState(1);     
-                gSTB.SetTopWin(0);         
-                
-                gSTB.SetVolume(currentVolume); 
-            } else {
-                showStatus("Запущено на ПК (gSTB эмуляция)");
+            gSTB.InitPlayer();
+            gSTB.SetAspect(0x10);
+            gSTB.SetVideoControl(0);
+            gSTB.SetVideoState(0);
+            gSTB.SetTopWin(0);
+            gSTB.SetViewport(800, 600, 0, 500);
             }
 
             renderList();
