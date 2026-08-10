@@ -2,354 +2,149 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>MAG322 Custom Portal</title>
+    <title>MAG322 Clean Portal</title>
     <style>
-        /* Базовые стили для HD разрешения приставки MAG */
+        /* Строжайшая прозрачность для MAG, чтобы графика не перекрывала видео */
         html, body {
-            background: transparent !important; /* Полная прозрачность, чтобы видеть полноэкранное видео */
+            background-color: transparent !important;
+            background: transparent !important;
             color: #ffffff;
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 0;
-            width: 1280px;
-            height: 720px;
-            overflow: hidden;
-            position: relative;
+            padding: 40px;
         }
-        
-        /* На ПК включаем темную подложку для удобства отладки */
-        @media screen and (min-width: 1281px) {
-            html { background-color: #1a1a1a !important; }
-        }
-
-        /* АВТО-МАСШТАБИРОВАНИЕ ДЛЯ НЕТБУКА (1024x600) */
-        @media screen and (max-width: 1024px) {
-            html, body {
-                transform: scale(0.8); 
-                transform-origin: top left;
-                width: 1280px;
-                height: 720px;
-            }
-        }
-
-        /* Рамка теперь растянута на ВЕСЬ экран (100%), так как плеер будет в Fullscreen */
-        .video-border {
-            position: absolute;
-            width: 1280px;  
-            height: 720px;  
-            left: 0;     
-            top: 0;      
-            border: 4px solid rgba(255, 255, 255, 0.15); /* Делаем легкую рамку по самому краю телевизора */
-            box-sizing: border-box;
-            pointer-events: none;
-            background: transparent !important; 
-            z-index: 1;
-        }
-
-        /* Полупрозрачное меню слева (смещено чуть глубже к центру экрана) */
-        .menu-box {
-            position: absolute;
-            top: 80px;
-            left: 100px;
-            background: rgba(20, 20, 20, 0.94); 
-            padding: 25px;
-            width: 400px;
+        .info-box {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            width: 500px;
             border-radius: 10px;
-            box-shadow: 0 0 25px rgba(0,0,0,0.9);
-            z-index: 10;
-            transition: opacity 0.3s ease; 
+            border: 2px solid #ffaa00;
         }
-        h1 { font-size: 24px; margin-top: 0; color: #ffaa00; }
-        .info { font-size: 14px; color: #aaa; margin-bottom: 15px; line-height: 1.5; }
-        ul { list-style: none; padding: 0; margin: 0; }
-        li {
-            padding: 14px 18px;
-            background: #2a2a2a;
-            margin-bottom: 8px;
-            border-radius: 5px;
-            font-size: 17px;
-        }
-        li.active {
-            background: #ffaa00;
-            color: #000000;
-            font-weight: bold;
-        }
-
-        /* Нижний статус-бар */
-        #status-bar {
-            position: absolute;
-            bottom: 80px;
-            left: 100px;
-            background: rgba(0, 0, 0, 0.85);
-            padding: 12px 25px;
-            border-radius: 5px;
-            font-size: 15px;
-            z-index: 10;
-            transition: opacity 0.3s ease; 
-        }
-
-        /* Графический индикатор громкости (Volume Bar) */
-        #volume-bar-container {
-            position: absolute;
-            top: 80px;
-            right: 100px;
-            background: rgba(0, 0, 0, 0.85);
-            padding: 15px 20px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5);
-            opacity: 0; 
-            transition: opacity 0.3s ease;
-            z-index: 20;
-        }
-        .volume-label {
-            font-size: 16px;
-            font-weight: bold;
-            color: #ffaa00;
-            margin-right: 15px;
-            width: 75px;
-        }
-        .volume-track {
-            width: 150px;
-            height: 12px;
-            background: #444;
-            border-radius: 6px;
-            overflow: hidden;
-        }
-        .volume-fill {
-            width: 10%; 
-            height: 100%;
-            background: #ffaa00;
-        }
+        h1 { color: #ffaa00; font-size: 24px; margin-top: 0; }
+        p { font-size: 16px; line-height: 1.5; }
     </style>
 </head>
 <body>
 
-    <!-- Внешний контур экрана -->
-    <div class="video-border"></div>
-
-    <!-- Интерфейс портала -->
-    <div class="menu-box" id="mainMenu">
-        <h1>Legacy IPTV Плеер</h1>
-        <div class="info">Навигация: Стрелки ↑ и ↓<br>Выбор: Enter / OK | Стоп: Backspace / EXIT<br>Громкость: Стрелки ← и →</div>
-        
-        <ul id="channelList">
-            <!-- Каналы добавятся через JS -->
-        </ul>
-    </div>
-
-    <!-- Статус бар -->
-    <div id="status-bar">Статус: Готов к работе</div>
-
-    <!-- Индикатор громкости -->
-    <div id="volume-bar-container">
-        <div class="volume-label" id="volumeText">ЗВУК: 10%</div>
-        <div class="volume-track">
-            <div class="volume-fill" id="volumeFill"></div>
-        </div>
+    <div class="info-box">
+        <h1>Минимальный плеер MAG322</h1>
+        <p>Ссылка: http://138.3.253.85:8000/stream/74.ts</p>
+        <p><strong>Управление:</strong><br>
+           Запуск потока — кнопка <strong>OK (Enter)</strong><br>
+           Остановка — кнопка <strong>BACK (Backspace)</strong> или Alt+S<br>
+           Громкость — кнопки <strong>Vol+ / Vol-</strong> (или + и - на Numpad)
+        </p>
+        <p id="status">Статус: Готов. Громкость установлена на 15%</p>
     </div>
 
     <script>
-        var channels = [
-            { name: "Тестовый стрим Oracle", url: "http://138.3.253.85:8000/stream/74.ts" },
-            { name: "Стрим: Мой Транскодер (HLS)", url: "https://ur5lgq-iptv-transcoder.hf.space/low.m3u8" },
-            { name: "Тест HD: Tears of Steel (HLS)", url: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8" },
-            { name: "Тест SD: BipBop (HLS Adaptive)", url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8" }
-        ];
-
-        var currentIndex = 0;
         var isStb = (typeof gSTB !== 'undefined');
-        var volumeTimer = null;
-        var hideUiTimer = null; 
-        var currentVolume = 10; 
-        var isPlaying = false; 
+        var streamUrl = 'http://138.3.253.85:8000/stream/74.ts';
 
+        // 1. Playback preparations (Подготовка плеера строго по вашему образцу)
         window.onload = function() {
             if (isStb) {
                 gSTB.InitPlayer();
-                gSTB.SetAspect(0x10);
-                gSTB.SetVideoControl(0);
-                gSTB.SetVideoState(0);
-                gSTB.SetTopWin(0);
-                gSTB.SetViewport(1280, 720, 0, 0);        
                 
-                gSTB.SetVolume(currentVolume); 
+                // Переводим параметры в 1, чтобы включить вывод видео поверх прозрачного HTML.
+                // В вашем образце (0) отключает вывод картинки на экран.
+                gSTB.SetVideoControl(1);   
+                gSTB.SetVideoState(1);     
+                
+                gSTB.SetAspect(0x10); // Формат видео по умолчанию (Fit on)
+                gSTB.SetTopWin(0);
+                
+                // Выводим видео на полный экран (1280x720 с нулевыми отступами), 
+                // чтобы исключить сжатие картинки в углу.
+                gSTB.SetViewport(1280, 720, 0, 0); 
+                
+                // Добавляем начальную установку громкости на 15%
+                gSTB.SetVolume(15); 
             } else {
-                showStatus("Запущено на ПК (gSTB эмуляция)");
+                console.log('gSTB API не найден (запуск на ПК)');
+                document.getElementById('status').innerText = 'Запущено на ПК (эмуляция)';
             }
-
-            renderList();
-            updateSelection();
-            updateVolumeUI(currentVolume);
         };
 
+        // 2. Event model initialization (Модель событий из образца)
         window.stbEvent = {
             onEvent: function ( event ) {
+                var statusEl = document.getElementById('status');
                 switch ( Number(event) ) {
-                    case 2: 
-                        showStatus("Статус: Получены аудио/видео дорожки."); 
+                    case 2:
+                        console.log('Information on audio and video tracks of the media content is received.');
+                        if (statusEl) statusEl.innerText = 'Статус: Дорожки получены. Декодирование...';
                         break;
-                    case 4: 
-                        showStatus("Статус: Воспроизведение запущено"); 
-                        isPlaying = true;
-                        startHideUiTimer(1000); 
+                    case 4:
+                        console.log('Video playback has begun.');
+                        if (statusEl) statusEl.innerText = 'Статус: Воспроизведение запущено!';
                         break;
-                    case 5: 
-                        showStatus("Ошибка: Не удалось открыть поток"); 
-                        isPlaying = false;
-                        toggleInterface(true); 
+                    case 5:
+                        if (statusEl) statusEl.innerText = 'Ошибка: Ошибка воспроизведения потока';
                         break;
                 }
             }
         };
 
-        function renderList() {
-            var html = "";
-            channels.forEach(function(ch, idx) {
-                html += '<li id="ch_' + idx + '">' + ch.name + '</li>';
-            });
-            document.getElementById("channelList").innerHTML = html;
-        }
-
-        function updateSelection() {
-            channels.forEach(function(ch, idx) {
-                var el = document.getElementById("ch_" + idx);
-                if (el) el.className = (idx === currentIndex) ? "active" : "";
-            });
-        }
-
-        function showStatus(text) {
-            document.getElementById("status-bar").innerText = text;
-        }
-
-        function toggleInterface(show) {
-            var menu = document.getElementById("mainMenu");
-            var statusBar = document.getElementById("status-bar");
-            
-            if (show) {
-                menu.style.display = "block";
-                statusBar.style.display = "block";
-            } else {
-                menu.style.display = "none";
-                statusBar.style.display = "none";
-            }
-        }
-
-        function startHideUiTimer(delay) {
-            clearTimeout(hideUiTimer);
-            if (!isPlaying) return; 
-            
-            hideUiTimer = setTimeout(function() {
-                toggleInterface(false);
-            }, delay);
-        }
-
-        function updateVolumeUI(vol) {
-            document.getElementById("volumeText").innerText = "ЗВУК: " + vol + "%";
-            document.getElementById("volumeFill").style.width = vol + "%";
-            
-            var container = document.getElementById("volume-bar-container");
-            container.style.opacity = "1"; 
-            
-            clearTimeout(volumeTimer);
-            volumeTimer = setTimeout(function() {
-                container.style.opacity = "0";
-            }, 2000);
-        }
-
+        // 3. Player manipulations on user input (Управление кнопками из образца)
         window.addEventListener('keydown', function ( event ) {
             var keyCode = event.keyCode || event.which;
-
+            var statusEl = document.getElementById('status');
+            
             if (isStb) {
-                currentVolume = gSTB.GetVolume();
-            }
-
-            var menu = document.getElementById("mainMenu");
-            if (isPlaying && menu.style.display === "none") {
-                toggleInterface(true);
-                startHideUiTimer(3000); 
-                
-                if (keyCode === 13 || keyCode === 27 || keyCode === 8) {
-                    event.preventDefault();
-                    return;
-                }
-            }
-
-            if (isPlaying && menu.style.display !== "none") {
-                startHideUiTimer(3000); 
+                var volume = gSTB.GetVolume();
+            } else {
+                var volume = 15;
             }
 
             switch ( keyCode ) {
-                case 38: 
-                case 33: 
-                    if (currentIndex > 0) {
-                        currentIndex--;
-                        updateSelection();
-                    }
-                    event.preventDefault();
-                    break;
-
-                case 40: 
-                case 34: 
-                    if (currentIndex < channels.length - 1) {
-                        currentIndex++;
-                        updateSelection();
-                    }
-                    event.preventDefault();
-                    break;
-
+                // Добавляем кнопку OK (Enter) для запуска видео, как в исходном образце
                 case 13: 
-                    showStatus("Запуск потока в gSTB...");
+                    if (statusEl) statusEl.innerText = 'Статус: Подключение к потоку...';
                     if (isStb) {
-                        gSTB.Play('auto ' + channels[currentIndex].url);
+                        gSTB.Play('auto ' + streamUrl); // Конструкция 'auto url'
                     } else {
-                        // Эмуляция старта на ПК
-                        isPlaying = true;
-                        showStatus("Эмуляция: Воспроизведение " + channels[currentIndex].name);
-                        startHideUiTimer(1000);
+                        if (statusEl) statusEl.innerText = 'Эмуляция ПК: Воспроизведение запущено';
                     }
                     event.preventDefault();
                     break;
 
-                case 39:  
-                case 107: 
-                case 187: 
+                // Кнопки громкости (из вашего образца с фиксом инкремента, чтобы не зависало)
+                case 107: // Плюс на Numpad или Vol+ на MAG
                 case 449: 
-                    if (currentVolume < 100) {
-                        currentVolume += 2;
-                        if (currentVolume > 100) currentVolume = 100;
-                        if (isStb) gSTB.SetVolume(currentVolume);
-                        updateVolumeUI(currentVolume);
-                    }
-                    event.preventDefault();
+                    console.log('keydown: volume up');
+                    volume += 5;
+                    if (volume > 100) volume = 100;
+                    if (isStb) gSTB.SetVolume(volume);
+                    if (statusEl) statusEl.innerText = 'Громкость: ' + volume + '%';
                     break;
 
-                case 37:  
-                case 109: 
-                case 189: 
+                case 109: // Минус на Numpad или Vol- на MAG
                 case 450: 
-                    if (currentVolume > 0) {
-                        currentVolume -= 2;
-                        if (currentVolume < 0) currentVolume = 0;
-                        if (isStb) gSTB.SetVolume(currentVolume);
-                        updateVolumeUI(currentVolume);
-                    }
+                    console.log('keydown: volume down');
+                    volume -= 5;
+                    if (volume < 0) volume = 0;
+                    if (isStb) gSTB.SetVolume(volume);
+                    if (statusEl) statusEl.innerText = 'Громкость: ' + volume + '%';
+                    break;
+
+                // Кнопка остановки из образца (Alt+S) + добавляем стандартные Backspace(8) и EXIT(27)
+                case 8:  // Backspace (ПК / пульт)
+                case 27: // ESC
+                    if (isStb) gSTB.Stop();
+                    if (statusEl) statusEl.innerText = 'Статус: Остановлено';
                     event.preventDefault();
                     break;
 
-                case 27: 
-                case 8:  
-                    if (isStb) gSTB.Stop();
-                    isPlaying = false; // Видео остановлено пользователем
-                    clearTimeout(hideUiTimer); 
-                    showStatus("Статус: остановлено");
-                    toggleInterface(true); 
-                    event.preventDefault();
+                case 83: // Клавиша S
+                    if ( event.altKey ) {
+                        console.log('keydown: stop');
+                        if (isStb) gSTB.Stop();
+                        if (statusEl) statusEl.innerText = 'Статус: Остановлено (Alt+S)';
+                    }
                     break;
             }
         });
     </script>
 </body>
 </html>
-                
