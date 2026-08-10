@@ -2,16 +2,15 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>MAG322 Instant Fullscreen Player</title>
+    <title>MAG322 Hardware Reset Mode</title>
     <style>
-        /* Полностью убираем любые фоны, отступы и разметку */
         html, body {
             background: transparent !important;
             background-color: transparent !important;
             margin: 0;
             padding: 0;
-            width: 1280px;
-            height: 720px;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
         }
     </style>
@@ -22,84 +21,68 @@
         var isStb = (typeof gSTB !== 'undefined');
         var streamUrl = 'http://138.3.253.85:8000/stream/74.ts';
 
-        // Автоматический старт сразу при загрузке страницы портала
         window.onload = function() {
             if (isStb) {
+                // 1. Аппаратный сброс видеодекодера Broadcom
+                if (typeof gSTB.SetMode === 'function') {
+                    gSTB.SetMode(0); // Принудительный сброс видеорежима в стандарт оператора
+                }
+                
                 gSTB.InitPlayer();
                 
-                // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ ДЛЯ ВАШЕЙ ПРОШИВКИ:
-                // Переводим SetVideoControl в 0. Это отключает веб-смешивание 
-                 gSTB.SetVideoControl(0);   
+                // Пробуем жесткое аппаратное разделение слоев
+                gSTB.SetVideoControl(0);   
                 gSTB.SetVideoState(1);     
-                
-                // Базовые системные настройки экрана
-                gSTB.SetAspect(0x10); 
                 gSTB.SetTopWin(0);
-                gSTB.SetViewport(1280, 720, 0, 0); 
                 
-                // Установка громкости на 15% при включении
+                // Принудительно выставляем 0x00 — режим "растянуть на весь экран без сохранения пропорций"
+                gSTB.SetAspect(0x00); 
+                
+                // Включаем Full HD координаты. Если приставка выдает сигнал 1080p, 
+                // старые координаты 1280x720 как раз занимали ровно треть экрана!
+                gSTB.SetViewport(1920, 1080, 0, 0); 
+                
+                // Начальная громкость 15%
                 gSTB.SetVolume(15); 
                 
-                // Мгновенный автоматический запуск потока
+                // Запуск потока
                 gSTB.Play('auto ' + streamUrl); 
-            } else {
-                alert('Запущено на ПК. Автостарт потока: ' + streamUrl);
             }
         };
 
-        // Модель обработки событий плеера
         window.stbEvent = {
             onEvent: function ( event ) {
-                switch ( Number(event) ) {
-                    case 2:
-                        console.log('Tracks received.');
-                        break;
-                    case 4:
-                        console.log('Playback started.');
-                        break;
-                    case 5:
-                        console.log('Playback error. Trying to reconnect...');
-                        // Автоматический перезапуск в случае срыва потока
-                        if (isStb) gSTB.Play('auto ' + streamUrl);
-                        break;
+                if (Number(event) === 5 && isStb) {
+                    gSTB.Play('auto ' + streamUrl); // Перезапуск при срыве
                 }
             }
         };
 
-        // Обработка клавиш пульта (Громкость и ручной перезапуск/стоп)
         window.addEventListener('keydown', function ( event ) {
             var keyCode = event.keyCode || event.which;
-            
-            if (isStb) {
-                var volume = gSTB.GetVolume();
-            } else {
-                var volume = 15;
-            }
+            if (!isStb) return;
+
+            var volume = gSTB.GetVolume();
 
             switch ( keyCode ) {
-                case 13: // Кнопка OK — ручной перезапуск потока, если завис
-                    if (isStb) gSTB.Play('auto ' + streamUrl);
-                    event.preventDefault();
+                case 13: // OK — ручной перезапуск
+                    gSTB.Play('auto ' + streamUrl);
                     break;
-
-                case 107: // Кнопка Vol+
+                case 107: // Vol+
                 case 449: 
                     volume += 5;
                     if (volume > 100) volume = 100;
-                    if (isStb) gSTB.SetVolume(volume);
+                    gSTB.SetVolume(volume);
                     break;
-
-                case 109: // Кнопка Vol-
+                case 109: // Vol-
                 case 450: 
                     volume -= 5;
                     if (volume < 0) volume = 0;
-                    if (isStb) gSTB.SetVolume(volume);
+                    gSTB.SetVolume(volume);
                     break;
-
-                case 8:  // Кнопка BACK (Остановка плеера)
-                case 27: // Кнопка EXIT
-                    if (isStb) gSTB.Stop();
-                    event.preventDefault();
+                case 8:  
+                case 27: 
+                    gSTB.Stop();
                     break;
             }
         });
