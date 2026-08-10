@@ -6,7 +6,7 @@
     <style>
         /* Базовые стили для HD разрешения приставки MAG */
         html, body {
-            background: transparent !important; 
+            background: transparent !important; /* Полная прозрачность, чтобы видеть полноэкранное видео */
             color: #ffffff;
             font-family: Arial, sans-serif;
             margin: 0;
@@ -32,42 +32,42 @@
             }
         }
 
-        /* Визуальный контур уменьшенного плеера */
+        /* Рамка теперь растянута на ВЕСЬ экран (100%), так как плеер будет в Fullscreen */
         .video-border {
             position: absolute;
-            width: 1152px;  
-            height: 648px;  
-            left: 64px;     
-            top: 36px;      
-            border: 2px solid rgba(255, 255, 255, 0.3); 
+            width: 1280px;  
+            height: 720px;  
+            left: 0;     
+            top: 0;      
+            border: 4px solid rgba(255, 255, 255, 0.15); /* Делаем легкую рамку по самому краю телевизора */
             box-sizing: border-box;
             pointer-events: none;
             background: transparent !important; 
             z-index: 1;
         }
 
-        /* Полупрозрачное меню слева */
+        /* Полупрозрачное меню слева (смещено чуть глубже к центру экрана) */
         .menu-box {
             position: absolute;
-            top: 50px;
-            left: 80px;
-            background: rgba(20, 20, 20, 0.92); 
-            padding: 20px;
-            width: 380px;
-            border-radius: 8px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            top: 80px;
+            left: 100px;
+            background: rgba(20, 20, 20, 0.94); 
+            padding: 25px;
+            width: 400px;
+            border-radius: 10px;
+            box-shadow: 0 0 25px rgba(0,0,0,0.9);
             z-index: 10;
             transition: opacity 0.3s ease; 
         }
-        h1 { font-size: 22px; margin-top: 0; color: #ffaa00; }
-        .info { font-size: 13px; color: #aaa; margin-bottom: 15px; line-height: 1.4; }
+        h1 { font-size: 24px; margin-top: 0; color: #ffaa00; }
+        .info { font-size: 14px; color: #aaa; margin-bottom: 15px; line-height: 1.5; }
         ul { list-style: none; padding: 0; margin: 0; }
         li {
-            padding: 12px 15px;
+            padding: 14px 18px;
             background: #2a2a2a;
-            margin-bottom: 6px;
-            border-radius: 4px;
-            font-size: 16px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            font-size: 17px;
         }
         li.active {
             background: #ffaa00;
@@ -78,12 +78,12 @@
         /* Нижний статус-бар */
         #status-bar {
             position: absolute;
-            bottom: 50px;
-            left: 80px;
+            bottom: 80px;
+            left: 100px;
             background: rgba(0, 0, 0, 0.85);
-            padding: 10px 20px;
+            padding: 12px 25px;
             border-radius: 5px;
-            font-size: 14px;
+            font-size: 15px;
             z-index: 10;
             transition: opacity 0.3s ease; 
         }
@@ -91,8 +91,8 @@
         /* Графический индикатор громкости (Volume Bar) */
         #volume-bar-container {
             position: absolute;
-            top: 50px;
-            right: 80px;
+            top: 80px;
+            right: 100px;
             background: rgba(0, 0, 0, 0.85);
             padding: 15px 20px;
             border-radius: 8px;
@@ -126,7 +126,7 @@
 </head>
 <body>
 
-    <!-- Тонкая рамка-ориентир -->
+    <!-- Внешний контур экрана -->
     <div class="video-border"></div>
 
     <!-- Интерфейс портала -->
@@ -152,10 +152,11 @@
 
     <script>
         var channels = [
-            { name: "Тестовый стрим Oracle", url: "http://138.3.253.85:8000/stream/74.ts" },
-            { name: "Стрим: Мой Транскодер (HLS)", url: "https://ur5lgq-iptv-transcoder.hf.space/low.m3u8" },
-            { name: "Тест HD: Tears of Steel (HLS)", url: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8" },
-            { name: "Тест SD: BipBop (HLS Adaptive)", url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8" }
+            { name: "Стрим: Мой Транскодер (HLS)", url: "https://hf.space" },
+            { name: "Тест HD: Tears of Steel (HLS)", url: "https://unified-streaming.com" },
+            { name: "Тест HD: Big Buck Bunny (MP4)", url: "http://googleapis.com" },
+            { name: "Тест HD: Big Buck Bunny (HLS)", url: "https://mux.dev" },
+            { name: "Тест SD: BipBop (HLS Adaptive)", url: "https://apple.com" }
         ];
 
         var currentIndex = 0;
@@ -163,47 +164,20 @@
         var volumeTimer = null;
         var hideUiTimer = null; 
         var currentVolume = 10; 
-        var isPlaying = false; // Флаг: активно ли сейчас видео
+        var isPlaying = false; 
 
         window.onload = function() {
             if (isStb) {
                 gSTB.InitPlayer();
                 
-                // 1. Сначала сбрасываем видео в чистый полноэкранный режим, 
-                // чтобы декодер Broadcom правильно определил пропорции экрана 16:9
-                gSTB.SetPIG(1, 256, 0, 0); 
-                gSTB.SetAspect(0x00); // 0x00 — принудительное растягивание видео (Stretched)      
+                // Включаем СТРОГИЙ Fullscreen на весь экран (State=1)
+                gSTB.SetPIG(1, 256, 0, 0);
+                gSTB.SetViewport(1280, 720, 0, 0); 
+                gSTB.SetAspect(0x00); // Принудительно растягивать (Stretch)      
                 
                 gSTB.SetVideoControl(1);   
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);         
-                
-                var screenWidth = window.innerWidth;
-                var w, h, x, y, pigScale;
-
-                if (screenWidth <= 1024) {
-                    // Координаты для нетбука 1024x600 (уменьшено на 20% от HD)
-                    w = Math.round(1152 * 0.8); // 922
-                    h = Math.round(648 * 0.8);  // 518
-                    x = Math.round(64 * 0.8);   // 51
-                    y = Math.round(36 * 0.8);   // 29
-                    pigScale = Math.round(256 * 0.8); // Корректируем масштаб под экран нетбука (~205)
-                } else {
-                    // Стандартные координаты для HD телевизора (уменьшено на 10% от full HD)
-                    w = 1152;
-                    h = 648;
-                    x = 64;
-                    y = 36;
-                    pigScale = 230; // 230/256 = ~0.9 (ровно 90% от экрана, чтобы видео влезло в рамку)
-                }
-
-                // 2. Задаем физические границы окна вывода
-                gSTB.SetViewport(w, h, x, y); 
-
-                // 3. Переводим в режим прямоугольника (state=0) и применяем высчитанный масштаб pigScale
-                if (typeof gSTB.SetPIG === 'function') {
-                    gSTB.SetPIG(0, pigScale, x, y);
-                }
                 
                 gSTB.SetVolume(currentVolume); 
             } else {
@@ -224,7 +198,7 @@
                     case 4: 
                         showStatus("Статус: Воспроизведение запущено"); 
                         isPlaying = true;
-                        startHideUiTimer(1000); // При старте скрываем быстро через 1 секунду
+                        startHideUiTimer(1000); 
                         break;
                     case 5: 
                         showStatus("Ошибка: Не удалось открыть поток"); 
@@ -267,10 +241,9 @@
             }
         }
 
-        // Запуск и обновление таймера автоскрытия
         function startHideUiTimer(delay) {
             clearTimeout(hideUiTimer);
-            if (!isPlaying) return; // Если видео остановлено, таймер не нужен
+            if (!isPlaying) return; 
             
             hideUiTimer = setTimeout(function() {
                 toggleInterface(false);
@@ -297,20 +270,17 @@
                 currentVolume = gSTB.GetVolume();
             }
 
-            // УМНОЕ ПОВЕДЕНИЕ: Если видео играет, а меню скрыто — показываем его при нажатии любой кнопки
             var menu = document.getElementById("mainMenu");
             if (isPlaying && menu.style.display === "none") {
                 toggleInterface(true);
-                startHideUiTimer(3000); // Включаем таймер скрытия на 3 секунды после этого клика
+                startHideUiTimer(3000); 
                 
-                // Предотвращаем срабатывание действия кнопки ОК и EXIT, чтобы не переключить/не остановить видео первым же кликом
                 if (keyCode === 13 || keyCode === 27 || keyCode === 8) {
                     event.preventDefault();
                     return;
                 }
             }
 
-            // Если меню открыто и видео идет, каждое нажатие любой кнопки продлевает отображение интерфейса на 3 секунды
             if (isPlaying && menu.style.display !== "none") {
                 startHideUiTimer(3000); 
             }
