@@ -2,94 +2,73 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>MAG322 Clean Portal</title>
+    <title>MAG322 Instant Fullscreen Player</title>
     <style>
-        /* Строжайшая прозрачность для MAG, чтобы графика не перекрывала видео */
+        /* Полностью убираем любые фоны, отступы и разметку */
         html, body {
-            background-color: transparent !important;
             background: transparent !important;
-            color: #ffffff;
-            font-family: Arial, sans-serif;
+            background-color: transparent !important;
             margin: 0;
-            padding: 40px;
+            padding: 0;
+            width: 1280px;
+            height: 720px;
+            overflow: hidden;
         }
-        .info-box {
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            width: 500px;
-            border-radius: 10px;
-            border: 2px solid #ffaa00;
-        }
-        h1 { color: #ffaa00; font-size: 24px; margin-top: 0; }
-        p { font-size: 16px; line-height: 1.5; }
     </style>
 </head>
 <body>
-
-    <div class="info-box">
-        <h1>Минимальный плеер MAG322</h1>
-        <p>Ссылка: http://138.3.253.85:8000/stream/74.ts</p>
-        <p><strong>Управление:</strong><br>
-           Запуск потока — кнопка <strong>OK (Enter)</strong><br>
-           Остановка — кнопка <strong>BACK (Backspace)</strong> или Alt+S<br>
-           Громкость — кнопки <strong>Vol+ / Vol-</strong> (или + и - на Numpad)
-        </p>
-        <p id="status">Статус: Готов. Громкость установлена на 15%</p>
-    </div>
 
     <script>
         var isStb = (typeof gSTB !== 'undefined');
         var streamUrl = 'http://138.3.253.85:8000/stream/74.ts';
 
-        // 1. Playback preparations (Подготовка плеера строго по вашему образцу)
+        // Автоматический старт сразу при загрузке страницы портала
         window.onload = function() {
             if (isStb) {
                 gSTB.InitPlayer();
                 
-                // Переводим параметры в 1, чтобы включить вывод видео поверх прозрачного HTML.
-                // В вашем образце (0) отключает вывод картинки на экран.
-                gSTB.SetVideoControl(1);   
+                // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ ДЛЯ ВАШЕЙ ПРОШИВКИ:
+                // Переводим SetVideoControl в 0. Это отключает веб-смешивание 
+                 gSTB.SetVideoControl(0);   
                 gSTB.SetVideoState(1);     
                 
-                gSTB.SetAspect(0x10); // Формат видео по умолчанию (Fit on)
+                // Базовые системные настройки экрана
+                gSTB.SetAspect(0x10); 
                 gSTB.SetTopWin(0);
-                
-                // Выводим видео на полный экран (1280x720 с нулевыми отступами), 
-                // чтобы исключить сжатие картинки в углу.
                 gSTB.SetViewport(1280, 720, 0, 0); 
                 
-                // Добавляем начальную установку громкости на 15%
+                // Установка громкости на 15% при включении
                 gSTB.SetVolume(15); 
+                
+                // Мгновенный автоматический запуск потока
+                gSTB.Play('auto ' + streamUrl); 
             } else {
-                console.log('gSTB API не найден (запуск на ПК)');
-                document.getElementById('status').innerText = 'Запущено на ПК (эмуляция)';
+                alert('Запущено на ПК. Автостарт потока: ' + streamUrl);
             }
         };
 
-        // 2. Event model initialization (Модель событий из образца)
+        // Модель обработки событий плеера
         window.stbEvent = {
             onEvent: function ( event ) {
-                var statusEl = document.getElementById('status');
                 switch ( Number(event) ) {
                     case 2:
-                        console.log('Information on audio and video tracks of the media content is received.');
-                        if (statusEl) statusEl.innerText = 'Статус: Дорожки получены. Декодирование...';
+                        console.log('Tracks received.');
                         break;
                     case 4:
-                        console.log('Video playback has begun.');
-                        if (statusEl) statusEl.innerText = 'Статус: Воспроизведение запущено!';
+                        console.log('Playback started.');
                         break;
                     case 5:
-                        if (statusEl) statusEl.innerText = 'Ошибка: Ошибка воспроизведения потока';
+                        console.log('Playback error. Trying to reconnect...');
+                        // Автоматический перезапуск в случае срыва потока
+                        if (isStb) gSTB.Play('auto ' + streamUrl);
                         break;
                 }
             }
         };
 
-        // 3. Player manipulations on user input (Управление кнопками из образца)
+        // Обработка клавиш пульта (Громкость и ручной перезапуск/стоп)
         window.addEventListener('keydown', function ( event ) {
             var keyCode = event.keyCode || event.which;
-            var statusEl = document.getElementById('status');
             
             if (isStb) {
                 var volume = gSTB.GetVolume();
@@ -98,50 +77,29 @@
             }
 
             switch ( keyCode ) {
-                // Добавляем кнопку OK (Enter) для запуска видео, как в исходном образце
-                case 13: 
-                    if (statusEl) statusEl.innerText = 'Статус: Подключение к потоку...';
-                    if (isStb) {
-                        gSTB.Play('auto ' + streamUrl); // Конструкция 'auto url'
-                    } else {
-                        if (statusEl) statusEl.innerText = 'Эмуляция ПК: Воспроизведение запущено';
-                    }
+                case 13: // Кнопка OK — ручной перезапуск потока, если завис
+                    if (isStb) gSTB.Play('auto ' + streamUrl);
                     event.preventDefault();
                     break;
 
-                // Кнопки громкости (из вашего образца с фиксом инкремента, чтобы не зависало)
-                case 107: // Плюс на Numpad или Vol+ на MAG
+                case 107: // Кнопка Vol+
                 case 449: 
-                    console.log('keydown: volume up');
                     volume += 5;
                     if (volume > 100) volume = 100;
                     if (isStb) gSTB.SetVolume(volume);
-                    if (statusEl) statusEl.innerText = 'Громкость: ' + volume + '%';
                     break;
 
-                case 109: // Минус на Numpad или Vol- на MAG
+                case 109: // Кнопка Vol-
                 case 450: 
-                    console.log('keydown: volume down');
                     volume -= 5;
                     if (volume < 0) volume = 0;
                     if (isStb) gSTB.SetVolume(volume);
-                    if (statusEl) statusEl.innerText = 'Громкость: ' + volume + '%';
                     break;
 
-                // Кнопка остановки из образца (Alt+S) + добавляем стандартные Backspace(8) и EXIT(27)
-                case 8:  // Backspace (ПК / пульт)
-                case 27: // ESC
+                case 8:  // Кнопка BACK (Остановка плеера)
+                case 27: // Кнопка EXIT
                     if (isStb) gSTB.Stop();
-                    if (statusEl) statusEl.innerText = 'Статус: Остановлено';
                     event.preventDefault();
-                    break;
-
-                case 83: // Клавиша S
-                    if ( event.altKey ) {
-                        console.log('keydown: stop');
-                        if (isStb) gSTB.Stop();
-                        if (statusEl) statusEl.innerText = 'Статус: Остановлено (Alt+S)';
-                    }
                     break;
             }
         });
