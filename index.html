@@ -132,8 +132,7 @@
                 if (typeof gSTB.SetMode === 'function') { gSTB.SetMode(0); }
                 gSTB.InitPlayer();
                 
-                // Включаем проверенные настройки: полноэкранное видео под прозрачной графикой
-                gSTB.SetVideoControl(1); // 1 = HTML поверх видеослоя   
+                gSTB.SetVideoControl(1); 
                 gSTB.SetVideoState(1);     
                 gSTB.SetTopWin(0);
                 gSTB.SetAspect(0x00); 
@@ -142,11 +141,27 @@
                 
                 if (typeof gSTB.SetHDMIAudioOut === 'function') { gSTB.SetHDMIAudioOut(1); }
                 if (typeof gSTB.SetAudioOperationalMode === 'function') { gSTB.SetAudioOperationalMode(0); }
+
+                // ========================================================
+                // КРИТИЧЕСКИЕ НАСТРОЙКИ СТАБИЛИЗАЦИИ ПОТОКА (ДЛЯ МУЛЬТИКАСТА И TS)
+                // ========================================================
+                
+                // 1. Увеличение буфера плеера: 4000 мс (4 секунды) предзагрузки контента.
+                // Защищает от зависаний и обрывов при просадках интернета.
+                if (typeof gSTB.SetBufferSize === 'function') {
+                    gSTB.SetBufferSize(4000, 10 * 1024 * 1024); // 4 секунды или 10 МБ буфера
+                }
+
+                // 2. Включение сетевой опции Keep-Alive.
+                // Принуждает приставку удерживать соединение с вашим транскодером.
+                if (typeof gSTB.SetPlayerOption === 'function') {
+                    gSTB.SetPlayerOption("Keep-Alive", "1");
+                    gSTB.SetPlayerOption("http_persistent", "1");
+                }
             } else {
                 showStatus("Запущено на ПК (gSTB эмуляция)");
             }
 
-            // Запускаем загрузку внешнего плейлиста
             loadM3U(playlistUrl);
         };
 
@@ -213,16 +228,16 @@
             updateSelection();
         }
 
+        // Обновленная модель обработки событий с "умным автореконнектом"
         window.stbEvent = {
             onEvent: function ( event ) {
                 if (!isStb) return;
                 switch ( Number(event) ) {
                     case 2:
-                        // Наш проверенный фикс звука
                         try {
                             var audioTracks = gSTB.GetAudioPIDs(); 
                             if (audioTracks && audioTracks.length > 0) {
-                                var firstTrack = audioTracks[0];
+                                var firstTrack = audioTracks;
                                 var pid = (typeof firstTrack === 'object') ? firstTrack.pid : firstTrack;
                                 gSTB.SetAudioPID(Number(pid));
                             }
@@ -231,12 +246,22 @@
                     case 4:
                         showStatus("Статус: Воспроизведение запущено");
                         isPlaying = true;
-                        startHideUiTimer(2000); // Скрываем графику через 2 секунды просмотра
+                        startHideUiTimer(2000); 
                         break;
                     case 5:
-                        showStatus("Ошибка: Сбой потока.");
-                        isPlaying = false;
-                        toggleInterface(true);
+                        // Сбой потока (case 5) — включаем мягкую перезагрузку
+                        showStatus("Сбой сети. Восстановление потока через 1.5 сек...");
+                        
+                        // Мягко гасим зависшую сессию плеера
+                        gSTB.Stop(); 
+                        
+                        // Делаем паузу в 1500мс, чтобы сервер транскодера успел закрыть старое соединение
+                        setTimeout(function() {
+                            if (playingIndex !== -1) {
+                                console.log("Auto-reconnecting to: " + channels[playingIndex].url);
+                                gSTB.Play('auto ' + channels[playingIndex].url);
+                            }
+                        }, 1500);
                         break;
                 }
             }
