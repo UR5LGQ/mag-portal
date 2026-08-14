@@ -170,7 +170,7 @@
                 } else {
                     showStatusWithTimer("Ошибка загрузки M3U. Резервный список.", 4000);
                     renderList();
-                    updateSelection();
+                    checkAutoStart(); // Проверяем автостарт для резервного списка
                 }
             }
         };
@@ -179,7 +179,7 @@
         } catch(e) {
             showStatusWithTimer("Ошибка сети CORS. Резервный список.", 4000);
             renderList();
-            updateSelection();
+            checkAutoStart(); // Проверяем автостарт для резервного списка
         }
     }
 
@@ -213,6 +213,27 @@
         }
 
         renderList();
+        checkAutoStart(); // Запускаем проверку сохраненного канала сразу после парсинга плейлиста
+    }
+
+    // Новая функция: проверка памяти и автостарт
+    function checkAutoStart() {
+        try {
+            var savedIndex = localStorage.getItem("lastChannelIndex");
+            if (savedIndex !== null) {
+                var idx = parseInt(savedIndex, 10);
+                // Проверяем, что индекс корректный и канал существует в текущем плейлисте
+                if (!isNaN(idx) && idx >= 0 && idx < channels.length) {
+                    currentIndex = idx;
+                    updateSelection();
+                    playCurrentChannel();
+                    return;
+                }
+            }
+        } catch (e) {
+            // На случай, если localStorage заблокирован или не поддерживается
+        }
+        // Если памяти нет, просто подсвечиваем первый канал без автозапуска
         updateSelection();
     }
 
@@ -305,11 +326,16 @@
         }
     }
 
-    // Функция для непосредственного запуска выбранного канала
+    // Функция для непосредственного запуска выбранного канала + сохранение в память
     function playCurrentChannel() {
         playingIndex = currentIndex;
         updateSelection();
         showStatusWithTimer("Запуск: " + channels[currentIndex].name, 3000);
+        
+        // Сохраняем индекс канала в постоянную память приставки
+        try {
+            localStorage.setItem("lastChannelIndex", currentIndex);
+        } catch (e) {}
         
         if (isStb) {
             gSTB.Play('auto ' + channels[currentIndex].url);
@@ -328,7 +354,6 @@
         switch ( keyCode ) {
             case 38: // Стрелка ВВЕРХ
                 if (isMenuVisible) {
-                    // Если меню ОТКРЫТО: перемещаем курсор к началу списка (предыдущий пункт)
                     if (currentIndex > 0) { 
                         currentIndex--; 
                     } else {
@@ -336,7 +361,6 @@
                     }
                     updateSelection(); 
                 } else {
-                    // Если меню ЗАКРЫТО (идет видео): кнопка ВВЕРХ включает СЛЕДУЮЩИЙ канал
                     if (currentIndex < channels.length - 1) { 
                         currentIndex++; 
                     } else {
@@ -351,7 +375,6 @@
 
             case 40: // Стрелка ВНИЗ
                 if (isMenuVisible) {
-                    // Если меню ОТКРЫТО: перемещаем курсор к концу списка (следующий пункт)
                     if (currentIndex < channels.length - 1) { 
                         currentIndex++; 
                     } else {
@@ -359,7 +382,6 @@
                     }
                     updateSelection();
                 } else {
-                    // Если меню ЗАКРЫТО (идет видео): кнопка ВНИЗ включает ПРЕДЫДУЩИЙ канал
                     if (currentIndex > 0) { 
                         currentIndex--; 
                     } else {
@@ -374,13 +396,11 @@
 
             case 13: // OK / Enter
                 if (isMenuVisible) {
-                    // Если меню открыто — запускаем выбранный канал и гасим меню через 1 сек
                     playCurrentChannel();
                     setTimeout(function() {
                         toggleMenu(false);
                     }, 1000);
                 } else {
-                    // Если меню закрыто и видео запущено — просто выводим инфо-бар с названием на 3 секунды
                     if (playingIndex !== -1) {
                         showStatusWithTimer("Канал: " + channels[playingIndex].name, 3000);
                     }
@@ -388,12 +408,11 @@
                 event.preventDefault();
                 break;
 
-            case 122: // Код кнопки MENU на некоторых пультах MAG / ПК F11
-            case 82:  // Альтернативный код Menu / KEY_MENU
+            case 122: // Код кнопки MENU
+            case 82:  // KEY_MENU
                 if (isMenuVisible) {
                     toggleMenu(false);
                 } else {
-                    // При открытии меню подтягиваем курсор к текущему играющему каналу
                     if (playingIndex !== -1) {
                         currentIndex = playingIndex;
                     }
@@ -436,6 +455,7 @@
                     isPlaying = false;
                     playingIndex = -1;
                     showStatusWithTimer("Статус: остановлено", 3000);
+                    try { localStorage.removeItem("lastChannelIndex"); } catch(e) {}
                     updateSelection();
                 }
                 event.preventDefault();
