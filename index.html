@@ -327,15 +327,22 @@
 
         switch ( keyCode ) {
             case 38: // Стрелка ВВЕРХ
-                if (currentIndex > 0) { 
-                    currentIndex--; 
+                if (isMenuVisible) {
+                    // Если меню ОТКРЫТО: перемещаем курсор к началу списка (предыдущий пункт)
+                    if (currentIndex > 0) { 
+                        currentIndex--; 
+                    } else {
+                        currentIndex = channels.length - 1; 
+                    }
+                    updateSelection(); 
                 } else {
-                    currentIndex = channels.length - 1; // Зацикливание списка вверх
-                }
-                updateSelection(); 
-                
-                // Если меню ЗАКРЫТО, то запускаем канал сразу
-                if (!isMenuVisible) {
+                    // Если меню ЗАКРЫТО (идет видео): кнопка ВВЕРХ включает СЛЕДУЮЩИЙ канал
+                    if (currentIndex < channels.length - 1) { 
+                        currentIndex++; 
+                    } else {
+                        currentIndex = 0; 
+                    }
+                    updateSelection();
                     playCurrentChannel();
                     menu.style.display = "none";
                 }
@@ -343,28 +350,40 @@
                 break;
 
             case 40: // Стрелка ВНИЗ
-                if (currentIndex < channels.length - 1) { 
-                    currentIndex++; 
+                if (isMenuVisible) {
+                    // Если меню ОТКРЫТО: перемещаем курсор к концу списка (следующий пункт)
+                    if (currentIndex < channels.length - 1) { 
+                        currentIndex++; 
+                    } else {
+                        currentIndex = 0; 
+                    }
+                    updateSelection();
                 } else {
-                    currentIndex = 0; // Зацикливание списка вниз
-                }
-                updateSelection();
-                
-                // Если меню ЗАКРЫТО, то запускаем канал сразу
-                if (!isMenuVisible) {
+                    // Если меню ЗАКРЫТО (идет видео): кнопка ВНИЗ включает ПРЕДЫДУЩИЙ канал
+                    if (currentIndex > 0) { 
+                        currentIndex--; 
+                    } else {
+                        currentIndex = channels.length - 1; 
+                    }
+                    updateSelection();
                     playCurrentChannel();
                     menu.style.display = "none";
                 }
                 event.preventDefault();
                 break;
 
-            case 13: // OK / Enter — теперь ВСЕГДА запускает канал
-                playCurrentChannel();
-                // Если канал запущен из открытого меню, скрываем меню через 1 секунду
+            case 13: // OK / Enter
                 if (isMenuVisible) {
+                    // Если меню открыто — запускаем выбранный канал и гасим меню через 1 сек
+                    playCurrentChannel();
                     setTimeout(function() {
                         toggleMenu(false);
                     }, 1000);
+                } else {
+                    // Если меню закрыто и видео запущено — просто выводим инфо-бар с названием на 3 секунды
+                    if (playingIndex !== -1) {
+                        showStatusWithTimer("Канал: " + channels[playingIndex].name, 3000);
+                    }
                 }
                 event.preventDefault();
                 break;
