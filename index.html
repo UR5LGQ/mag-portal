@@ -326,40 +326,41 @@
         var isMenuVisible = (menu.style.display === "block" || menu.style.display === "");
 
         switch ( keyCode ) {
-            case 38: // Стрелка ВВЕРХ — предыдущий канал + автозапуск
+            case 38: // Стрелка ВВЕРХ
                 if (currentIndex > 0) { 
                     currentIndex--; 
-                    updateSelection(); 
                 } else {
                     currentIndex = channels.length - 1; // Зацикливание списка вверх
-                    updateSelection();
                 }
-                playCurrentChannel();
+                updateSelection(); 
                 
+                // Если меню ЗАКРЫТО, то запускаем канал сразу
                 if (!isMenuVisible) {
+                    playCurrentChannel();
                     menu.style.display = "none";
                 }
                 event.preventDefault();
                 break;
 
-            case 40: // Стрелка ВНИЗ — следующий канал + автозапуск
+            case 40: // Стрелка ВНИЗ
                 if (currentIndex < channels.length - 1) { 
                     currentIndex++; 
-                    updateSelection(); 
                 } else {
                     currentIndex = 0; // Зацикливание списка вниз
-                    updateSelection();
                 }
-                playCurrentChannel();
+                updateSelection();
                 
+                // Если меню ЗАКРЫТО, то запускаем канал сразу
                 if (!isMenuVisible) {
+                    playCurrentChannel();
                     menu.style.display = "none";
                 }
                 event.preventDefault();
                 break;
 
-            case 13: // OK / Enter
+            case 13: // OK / Enter — теперь ВСЕГДА запускает канал
                 playCurrentChannel();
+                // Если канал запущен из открытого меню, скрываем меню через 1 секунду
                 if (isMenuVisible) {
                     setTimeout(function() {
                         toggleMenu(false);
@@ -373,7 +374,12 @@
                 if (isMenuVisible) {
                     toggleMenu(false);
                 } else {
+                    // При открытии меню подтягиваем курсор к текущему играющему каналу
+                    if (playingIndex !== -1) {
+                        currentIndex = playingIndex;
+                    }
                     toggleMenu(true);
+                    updateSelection();
                 }
                 event.preventDefault();
                 break;
