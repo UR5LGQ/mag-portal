@@ -216,11 +216,19 @@
         checkAutoStart(); // Запускаем проверку сохраненного канала сразу после парсинга плейлиста
     }
 
-    // Новая функция: проверка памяти и автостарт
+    // Функция: проверка сохраненного файла в системе приставки и автостарт
     function checkAutoStart() {
         try {
-            var savedIndex = localStorage.getItem("lastChannelIndex");
-            if (savedIndex !== null) {
+            var savedIndex = null;
+            if (isStb && typeof gSTB.LoadUserData === 'function') {
+                // Загружаем данные из внутренней памяти приставки
+                savedIndex = gSTB.LoadUserData('last_channel');
+            } else {
+                // Резервный вариант для ПК-эмуляции
+                savedIndex = localStorage.getItem("lastChannelIndex");
+            }
+
+            if (savedIndex !== null && savedIndex !== "") {
                 var idx = parseInt(savedIndex, 10);
                 // Проверяем, что индекс корректный и канал существует в текущем плейлисте
                 if (!isNaN(idx) && idx >= 0 && idx < channels.length) {
@@ -231,7 +239,7 @@
                 }
             }
         } catch (e) {
-            // На случай, если localStorage заблокирован или не поддерживается
+            // Защита от критических сбоев при чтении памяти
         }
         // Если памяти нет, просто подсвечиваем первый канал без автозапуска
         updateSelection();
@@ -326,16 +334,23 @@
         }
     }
 
-    // Функция для непосредственного запуска выбранного канала + сохранение в память
+    // Функция для непосредственного запуска выбранного канала + сохранение на диск приставки
     function playCurrentChannel() {
         playingIndex = currentIndex;
         updateSelection();
         showStatusWithTimer("Запуск: " + channels[currentIndex].name, 3000);
         
-        // Сохраняем индекс канала в постоянную память приставки
+        // Сохраняем индекс канала во внутреннюю файловую систему приставки
         try {
-            localStorage.setItem("lastChannelIndex", currentIndex);
-        } catch (e) {}
+            if (isStb && typeof gSTB.SaveUserData === 'function') {
+                // Записываем индекс как строку в файл /mnt/Userfs/data/last_channel
+                gSTB.SaveUserData('last_channel', String(currentIndex));
+            } else {
+                localStorage.setItem("lastChannelIndex", currentIndex);
+            }
+        } catch (e) {
+            // Защита от критических сбоев при записи
+        }
         
         if (isStb) {
             gSTB.Play('auto ' + channels[currentIndex].url);
@@ -455,7 +470,14 @@
                     isPlaying = false;
                     playingIndex = -1;
                     showStatusWithTimer("Статус: остановлено", 3000);
-                    try { localStorage.removeItem("lastChannelIndex"); } catch(e) {}
+                    // Очищаем историю принудительным стопом (записываем пустую строку в файл)
+                    try { 
+                        if (isStb && typeof gSTB.SaveUserData === 'function') {
+                            gSTB.SaveUserData('last_channel', '');
+                        } else {
+                            localStorage.removeItem("lastChannelIndex"); 
+                        }
+                    } catch(e) {}
                     updateSelection();
                 }
                 event.preventDefault();
