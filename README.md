@@ -5,3 +5,4 @@ https://ur5lgq.github.io/mag-portal/
 http://138.3.253.85:8000/admin
 https://ur5lgq-iptv-transcoder.hf.space/
 https://ur5lgq-iptv-transcoder.hf.space/playlist.m3u
+http://138.3.253.85:8080/index.html
